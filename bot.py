@@ -216,7 +216,8 @@ async def myid(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def show_about(chat_id, context, uid=0):
     db.log_ev(uid, "about")
-    await send(context.bot, chat_id, T.ABOUT, kb_nav(), T.PHOTOS.get("about"))
+    markup = kb([[(T.BTN_CONSULT, "write:consult")], [(T.BTN_HOME, "home")]])
+    await send(context.bot, chat_id, T.ABOUT, markup, T.PHOTOS.get("about"))
 
 
 async def show_products(chat_id, context, edit_msg=None, uid=0):
@@ -271,7 +272,9 @@ async def show_contacts(chat_id, context, uid=0):
 
 async def ask_start(chat_id, context, uid, topic=""):
     state(uid, f"ask:{topic}")
-    await context.bot.send_message(chat_id, T.ASK, parse_mode=HTML,
+    if topic == "consult":
+        db.log_ev(uid, "consult")
+    await context.bot.send_message(chat_id, T.ASK_CONSULT if topic == "consult" else T.ASK, parse_mode=HTML,
                                    reply_markup=kb([[(T.BTN_CANCEL, "ask_cancel")]]))
 
 
@@ -422,7 +425,7 @@ async def on_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         head = T.ADMIN_QUESTION.format(who=who(u), uid=uid, text=esc(text or msg.caption or "(голосове чи файл нижче)"))
         if topic:
             title = launch.topic_title(topic) if launch else ""
-            title = title or T.PRODUCTS.get(topic, (topic,))[0]
+            title = title or T.TOPICS.get(topic) or T.PRODUCTS.get(topic, (topic,))[0]
             head = f"Тема: <b>{esc(title)}</b>\n" + head
         for a in config.ADMIN_IDS:
             try:
