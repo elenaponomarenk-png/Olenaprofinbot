@@ -134,7 +134,7 @@ function render() {
     // Ручне введення: торкнулись віконця, воно очищається (старе число видно світлою підказкою), пишете своє.
     // Поки людина пише, результат рахується одразу; коли закінчила, число стає в межі і з пробілами.
     const typed = () => +String(num.value).replace(/\D/g, "");
-    num.onfocus = () => { num.placeholder = money(vals[kind + key]); num.value = ""; };
+    num.onfocus = () => { num.placeholder = money(vals[kind + key]); num.value = ""; goDone(true); };
     num.oninput = () => {
       const v = typed();
       if (v >= lo && v <= hi) {
@@ -144,7 +144,7 @@ function render() {
         calcNow();
       }
     };
-    num.onblur = () => set(typed() || vals[kind + key]);
+    num.onblur = () => { set(typed() || vals[kind + key]); goDone(false); };
     num.onkeydown = e => { if (e.key === "Enter") num.blur(); };
     f.querySelectorAll(".pm").forEach(b => b.onclick = () => {
       set(vals[kind + key] + step * +b.dataset.d);
@@ -181,7 +181,21 @@ document.querySelectorAll(".tab").forEach(t => t.onclick = () => {
   kind = t.dataset.k; render(); window.scrollTo(0, 0);
 });
 
-document.getElementById("go").onclick = () => {
+// Поки людина вписує число, велика кнопка стає «✓ Готово» і ховає клавіатуру
+const go = document.getElementById("go"), GO_TEXT = go.textContent;
+let doneMode = false, doneTimer = null;
+function goDone(on) {
+  clearTimeout(doneTimer);
+  if (on) { doneMode = true; go.textContent = "✓ Готово"; return; }
+  // трохи чекаємо: натискання на «Готово» спершу забирає фокус з віконця, а вже потім спрацьовує кнопка
+  doneTimer = setTimeout(() => { doneMode = false; go.textContent = GO_TEXT; }, 400);
+}
+go.onclick = () => {
+  if (doneMode) {
+    if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+    clearTimeout(doneTimer); doneMode = false; go.textContent = GO_TEXT;
+    return;
+  }
   const data = JSON.stringify(current());
   if (tg && tg.sendData) tg.sendData(data); // агент отримає цифри, сам перерахує і запропонує запис
 };
