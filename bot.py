@@ -302,15 +302,26 @@ async def ask_start(chat_id, context, uid, topic=""):
     is_consult = topic == "consult" or topic in T.PRODUCTS or topic.startswith("calc_")  # запис на консультацію з «Про мене» або з картки програми
     if is_consult:
         db.log_ev(uid, "consult", topic)
-        if not config.is_admin(uid):  # Олені одразу, навіть якщо людина так нічого й не напише
+        # Одне натискання = запис: Олені одразу запит (на нього можна «Відповісти»), людині підтвердження
+        db.kv(f"consult_sent:{uid}", topic)
+        if not config.is_admin(uid):
             u = db.user(uid) or {}
             nick = u.get("username")
             contact = f"@{esc(nick)}" if nick else f'<a href="tg://user?id={uid}">{T.ADMIN_WRITE_LINK}</a>'
-            text = T.ADMIN_CONSULT_CLICK.format(who=who(u), topic=esc(topic_title(topic)), contact=contact)
+            text = T.ADMIN_CONSULT.format(who=who(u), uid=uid, topic=esc(topic_title(topic)), contact=contact)
             if topic.startswith("calc_") and db.kv(f"calc_res:{uid}"):
                 text += "\n\n<b>Розрахунок людини:</b>\n" + db.kv(f"calc_res:{uid}")
-            await notify_admins(context.bot, text)
-    await context.bot.send_message(chat_id, T.ASK_CONSULT if is_consult else T.ASK, parse_mode=HTML,
+            for a in config.ADMIN_IDS:
+                try:
+                    m = await context.bot.send_message(a, text, parse_mode=HTML)
+                    db.kv(f"q:{m.message_id}", uid)
+                except Exception as e:
+                    log.warning("consult to admin: %s", e)
+        await context.bot.send_message(chat_id, T.CONSULT_DONE, parse_mode=HTML,
+                                       reply_markup=kb([[(T.BTN_HOME, "home")]]))
+        return
+    db.kv(f"consult_sent:{uid}", "")
+    await context.bot.send_message(chat_id, T.ASK, parse_mode=HTML,
                                    reply_markup=kb([[(T.BTN_CANCEL, "ask_cancel")]]))
 
 
@@ -523,7 +534,10 @@ async def on_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         state(uid, "")
         db.log_ev(uid, "question", topic)
         head = T.ADMIN_QUESTION.format(who=who(u), uid=uid, text=esc(text or msg.caption or "(голосове чи файл нижче)"))
-        if topic:
+        if db.kv(f"consult_sent:{uid}"):  # людина вже записалась одним натисканням, це доповнення (час, телефон)
+            db.kv(f"consult_sent:{uid}", "")
+            head = T.ADMIN_CONSULT_EXTRA + "\n" + head
+        elif topic:
             head = f"Тема: <b>{esc(topic_title(topic))}</b>\n" + head
             if topic.startswith("calc_") and db.kv(f"calc_res:{uid}"):
                 head += "\n\n<b>Розрахунок людини:</b>\n" + db.kv(f"calc_res:{uid}")
