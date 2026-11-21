@@ -33,6 +33,7 @@
   .hint { color: var(--hint); font-size: 14px; margin-top: 2px; }
   .val { flex: none; width: 172px; border: 1.5px solid var(--line); border-radius: 14px; padding: 8px 12px; text-align: right;
          font-size: 20px; font-weight: 700; display: flex; align-items: baseline; justify-content: flex-end; gap: 4px; }
+  .val input::placeholder { color: var(--hint); }
   .val input { width: 100%; min-width: 0; border: 0; background: none; font: inherit; color: var(--text); text-align: right; outline: none; }
   .val span { font-size: 15px; font-weight: 500; color: var(--hint); }
   .slide { display: flex; align-items: center; gap: 12px; margin-top: 12px; }
@@ -116,7 +117,7 @@ function render() {
     const f = document.createElement("div");
     f.className = "field";
     f.innerHTML = `<div class="row"><div><div class="label">${label}</div>${hint ? `<div class="hint">${hint}</div>` : ""}</div>
-      <label class="val"><input inputmode="numeric" value="${money(vals[kind + key])}"><span>${unit}</span></label></div>
+      <label class="val"><input type="text" inputmode="numeric" enterkeyhint="done" value="${money(vals[kind + key])}"><span>${unit}</span></label></div>
       <div class="slide"><button class="pm" data-d="-1">−</button>
       <input type="range" min="${lo}" max="${hi}" step="${step}" value="${vals[kind + key]}">
       <button class="pm" data-d="1">+</button></div>`;
@@ -130,7 +131,21 @@ function render() {
       calcNow();
     };
     rng.oninput = () => set(+rng.value);
-    num.onchange = () => set(+String(num.value).replace(/\D/g, "") || lo);
+    // Ручне введення: торкнулись віконця, воно очищається (старе число видно світлою підказкою), пишете своє.
+    // Поки людина пише, результат рахується одразу; коли закінчила, число стає в межі і з пробілами.
+    const typed = () => +String(num.value).replace(/\D/g, "");
+    num.onfocus = () => { num.placeholder = money(vals[kind + key]); num.value = ""; };
+    num.oninput = () => {
+      const v = typed();
+      if (v >= lo && v <= hi) {
+        vals[kind + key] = v; rng.value = v;
+        if (key === "monthly" && shows.yearly) shows.yearly(v * 12);
+        if (key === "yearly" && shows.monthly) shows.monthly(Math.round(v / 12));
+        calcNow();
+      }
+    };
+    num.onblur = () => set(typed() || vals[kind + key]);
+    num.onkeydown = e => { if (e.key === "Enter") num.blur(); };
     f.querySelectorAll(".pm").forEach(b => b.onclick = () => {
       set(vals[kind + key] + step * +b.dataset.d);
       if (tg && tg.HapticFeedback) tg.HapticFeedback.selectionChanged();
