@@ -237,7 +237,7 @@ async def show_products(chat_id, context, edit_msg=None, uid=0):
 
 async def show_product(chat_id, context, key, edit_msg=None):
     name, text = T.PRODUCTS[key]
-    markup = kb([[(T.BTN_WRITE_ME, f"write:{key}")], [(T.BTN_BACK, "products"), (T.BTN_HOME, "home")]])
+    markup = kb([[(T.BTN_CONSULT, f"write:{key}")], [(T.BTN_BACK, "products"), (T.BTN_HOME, "home")]])
     media = T.PRODUCT_PHOTOS.get(key)
     if edit_msg and edit_msg.text and not media_path(media):
         try:
@@ -272,9 +272,10 @@ async def show_contacts(chat_id, context, uid=0):
 
 async def ask_start(chat_id, context, uid, topic=""):
     state(uid, f"ask:{topic}")
-    if topic == "consult":
-        db.log_ev(uid, "consult")
-    await context.bot.send_message(chat_id, T.ASK_CONSULT if topic == "consult" else T.ASK, parse_mode=HTML,
+    is_consult = topic == "consult" or topic in T.PRODUCTS  # запис на консультацію з «Про мене» або з картки програми
+    if is_consult:
+        db.log_ev(uid, "consult", topic)
+    await context.bot.send_message(chat_id, T.ASK_CONSULT if is_consult else T.ASK, parse_mode=HTML,
                                    reply_markup=kb([[(T.BTN_CANCEL, "ask_cancel")]]))
 
 
@@ -425,7 +426,8 @@ async def on_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         head = T.ADMIN_QUESTION.format(who=who(u), uid=uid, text=esc(text or msg.caption or "(голосове чи файл нижче)"))
         if topic:
             title = launch.topic_title(topic) if launch else ""
-            title = title or T.TOPICS.get(topic) or T.PRODUCTS.get(topic, (topic,))[0]
+            title = title or (f"Запис на консультацію: {T.PRODUCTS[topic][0]}" if topic in T.PRODUCTS else "")
+            title = title or T.TOPICS.get(topic) or topic
             head = f"Тема: <b>{esc(title)}</b>\n" + head
         for a in config.ADMIN_IDS:
             try:
