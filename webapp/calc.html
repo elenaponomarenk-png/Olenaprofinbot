@@ -96,7 +96,9 @@ const CALCS = {
              ["monthly", "Відкладаю на місяць", "", 500, 50000, 500, 1000, "грн"]] },
 };
 
-let kind = "save";
+let kind = new URLSearchParams(location.search).get("tab");
+if (!CALCS[kind]) kind = "save";
+document.querySelectorAll(".tab").forEach(x => x.classList.toggle("on", x.dataset.k === kind));
 const vals = {};
 
 function render() {
