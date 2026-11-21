@@ -12,7 +12,7 @@ from datetime import datetime, timedelta
 from telegram import (BotCommand, BotCommandScopeChat, InlineKeyboardButton, InlineKeyboardMarkup,
                       ReplyKeyboardMarkup, Update)
 from telegram.constants import ParseMode
-from telegram.error import Forbidden
+from telegram.error import Conflict, Forbidden
 from telegram.ext import (Application, ApplicationBuilder, CallbackQueryHandler, CommandHandler, ContextTypes,
                           MessageHandler, filters)
 
@@ -515,6 +515,9 @@ async def report_job(context):
 # ================== помилки, запуск ==================
 
 async def on_error(update: object, context: ContextTypes.DEFAULT_TYPE):
+    if isinstance(context.error, Conflict):  # під час оновлення стара і нова копія агента кілька секунд працюють разом
+        log.warning("conflict: %s", context.error)
+        return
     log.exception("error", exc_info=context.error)
     try:
         if isinstance(update, Update) and update.effective_chat and update.effective_chat.type == "private":
