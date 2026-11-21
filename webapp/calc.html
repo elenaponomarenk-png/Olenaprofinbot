@@ -85,21 +85,25 @@ const money = x => Math.round(x).toLocaleString("uk-UA").replace(/ /g, " ");
 
 const CALCS = {
   save: { title: "Скільки я накопичу", sub: "Кілька цифр, і побачите свій капітал",
-    fields: [["monthly", "Відкладаю на місяць", "", 500, 50000, 500, 1000, "грн"],
+    fields: [["monthly", "Відкладаю на місяць", "", 500, 50000, 100, 1000, "грн"],
+             ["yearly", "Відкладаю на рік", "", 6000, 600000, 1200, 12000, "грн"],
              ["years", "Скільки років", "від 1 до 40", 1, 40, 1, 10, "р."]] },
   pension: { title: "Яка буде моя пенсія", sub: "Скільки накопичите до пенсії і на скільки вистачить",
     fields: [["age", "Вік зараз", "18-65 років", 18, 65, 1, 35, "р."],
              ["retire", "Вік виходу на пенсію", "коли хочете отримувати пенсію", 45, 75, 1, 60, "р."],
-             ["monthly", "Відкладаю на місяць", "", 500, 50000, 500, 1000, "грн"]] },
+             ["monthly", "Відкладаю на місяць", "", 500, 50000, 100, 1000, "грн"],
+             ["yearly", "Відкладаю на рік", "", 6000, 600000, 1200, 12000, "грн"]] },
   kids: { title: "Капітал для дитини", sub: "Скільки буде у дитини в 18 років",
     fields: [["child_age", "Вік дитини зараз", "0-17 років", 0, 17, 1, 0, "р."],
-             ["monthly", "Відкладаю на місяць", "", 500, 50000, 500, 1000, "грн"]] },
+             ["monthly", "Відкладаю на місяць", "", 500, 50000, 100, 1000, "грн"],
+             ["yearly", "Відкладаю на рік", "", 6000, 600000, 1200, 12000, "грн"]] },
 };
 
 let kind = new URLSearchParams(location.search).get("tab");
 if (!CALCS[kind]) kind = "save";
 document.querySelectorAll(".tab").forEach(x => x.classList.toggle("on", x.dataset.k === kind));
 const vals = {};
+const shows = {};  // показати нове число в полі без перерахунку (для пов'язаних «на місяць» і «на рік»)
 
 function render() {
   const c = CALCS[kind];
@@ -108,7 +112,7 @@ function render() {
   const box = document.getElementById("fields");
   box.innerHTML = "";
   c.fields.forEach(([key, label, hint, lo, hi, step, def, unit]) => {
-    if (vals[kind + key] === undefined) vals[kind + key] = def;
+    if (vals[kind + key] === undefined) vals[kind + key] = key === "yearly" ? vals[kind + "monthly"] * 12 : def;
     const f = document.createElement("div");
     f.className = "field";
     f.innerHTML = `<div class="row"><div><div class="label">${label}</div>${hint ? `<div class="hint">${hint}</div>` : ""}</div>
@@ -117,9 +121,13 @@ function render() {
       <input type="range" min="${lo}" max="${hi}" step="${step}" value="${vals[kind + key]}">
       <button class="pm" data-d="1">+</button></div>`;
     const num = f.querySelector(".val input"), rng = f.querySelector("input[type=range]");
+    shows[key] = v => { vals[kind + key] = v; num.value = v; rng.value = v; };
     const set = v => {
       v = Math.max(lo, Math.min(hi, Math.round(v)));
-      vals[kind + key] = v; num.value = v; rng.value = v; calcNow();
+      shows[key](v);
+      if (key === "monthly" && shows.yearly) shows.yearly(v * 12);       // на місяць → на рік
+      if (key === "yearly" && shows.monthly) shows.monthly(Math.round(v / 12));  // на рік → на місяць
+      calcNow();
     };
     rng.oninput = () => set(+rng.value);
     num.onchange = () => set(+String(num.value).replace(/\D/g, "") || lo);
