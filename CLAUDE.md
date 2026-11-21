@@ -138,7 +138,8 @@ Claude кладе з нього файли агента в папку, збер�
 - Що ще запам'ятати:
 
 ## ПОТОЧНИЙ СТАН (оновлює Claude після кожної роботи)
-- Етап: 1 готовий, далі етап 2 (Railway).
-- Зроблено: файли агента в папці (bot.py, db.py, texts.py, config.py, Procfile, requirements.txt, .python-version, images/). Код перевірено: запускається без помилок.
-- В роботі: злиття змін у main (Create PR → Merge pull request).
-- Чекаємо від власниці: злити зміни в main, потім етап 2.
+- Етап: 2 в роботі (Railway).
+- Зроблено: етап 1 (файли в папці). Railway: проєкт створено, сервіс Olenaprofinbot, змінні BOT_TOKEN (бот @Olenaprofinancebot, у Telegram підписаний «Olenaprofinbot») і DB_PATH=/data/bot.db. Зайвий сервіс worker видалено.
+- Важливо: бот @Olenaprofinbot («Фінансовий план життя») працює в конструкторі, його ключ НЕ використовувати.
+- В роботі: агент падав з «unable to open database file» (диск /data не підключився). Версія 1.1: агент сам створює папку. Перевірити, що диск (Volume /data) підключений до Olenaprofinbot, інакше люди зникатимуть після оновлень.
+- Далі: /start в агенті, потім /myid → змінна ADMIN_ID.
