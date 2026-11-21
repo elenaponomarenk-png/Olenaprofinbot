@@ -9,8 +9,8 @@ import os
 from collections import Counter
 from datetime import datetime, timedelta
 
-from telegram import (BotCommand, BotCommandScopeChat, InlineKeyboardButton, InlineKeyboardMarkup,
-                      ReplyKeyboardMarkup, Update)
+from telegram import (BotCommand, BotCommandScopeChat, InlineKeyboardButton, InlineKeyboardMarkup, KeyboardButton,
+                      ReplyKeyboardMarkup, Update, WebAppInfo)
 from telegram.constants import ParseMode
 from telegram.error import Conflict, Forbidden
 from telegram.ext import (Application, ApplicationBuilder, CallbackQueryHandler, CommandHandler, ContextTypes,
@@ -20,6 +20,7 @@ import calc
 import config
 import db
 import texts as T
+import webserver
 
 # Додаток продажів: якщо в папці є launch.py, агент уміє запуски й оплату. Помилки в ньому не ховаємо.
 if os.path.exists(os.path.join(os.path.dirname(os.path.abspath(__file__)), "launch.py")):
@@ -47,7 +48,9 @@ def menu_buttons():
 
 def kb_bottom(uid):
     """Нижнє меню: широка головна кнопка зверху, далі по 2 в ряд. Власниці ще «Керування»."""
-    rows = [[main_button()], [T.BTN_CALC], [T.BTN_PRODUCTS, T.BTN_ASK], [T.BTN_CABINET, T.BTN_CONTACTS]]
+    # «Розрахунки»: якщо є адреса мінізастосунку, кнопка одразу відкриває його, інакше розрахунки в чаті
+    calc_btn = KeyboardButton(T.BTN_CALC, web_app=WebAppInfo(config.WEBAPP_URL)) if config.WEBAPP_URL else T.BTN_CALC
+    rows = [[main_button()], [calc_btn], [T.BTN_PRODUCTS, T.BTN_ASK], [T.BTN_CABINET, T.BTN_CONTACTS]]
     if config.is_admin(uid):
         rows.append([T.BTN_ADMIN])
     return ReplyKeyboardMarkup(rows, resize_keyboard=True, is_persistent=True)
@@ -310,6 +313,11 @@ async def calc_answer(msg, context, uid, st):
         await msg.reply_text(calc.question(kind, step + 1), parse_mode=HTML,
                              reply_markup=kb([[(T.BTN_BACK, "calc"), (T.BTN_HOME, "home")]]))
         return
+    await calc_finish(msg, uid, kind)
+
+
+async def calc_finish(msg, uid, kind):
+    """Показує результат розрахунку з кнопкою запису (і з чату, і з мінізастосунку)."""
     state(uid, "")
     text = calc.result(kind, uid)
     db.kv(f"calc_res:{uid}", text)  # Олена побачить цей розрахунок, якщо людина запишеться
@@ -415,6 +423,15 @@ async def on_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     uid, chat_id = u.id, msg.chat_id
     db.touch_user(uid, u.full_name, u.username or "")
     text = msg.text or ""
+
+    # 0) Цифри з мінізастосунку «Розрахунки»
+    if msg.web_app_data:
+        kind = calc.from_webapp(uid, msg.web_app_data.data)
+        if kind:
+            await calc_finish(msg, uid, kind)
+        else:
+            await msg.reply_text(T.CALC_NOT_NUMBER, reply_markup=kb_bottom(uid))
+        return
 
     # 1) Кнопки нижнього меню завжди першими: людина не «застрягає» в питанні чи розсилці
     if text in menu_buttons():
@@ -616,6 +633,7 @@ def main():
     app.add_handler(MessageHandler(filters.ChatType.PRIVATE & ~filters.COMMAND, on_message))
     app.job_queue.run_repeating(report_job, interval=600, first=60)  # звіт о 9:00, один раз на день
     app.add_error_handler(on_error)
+    webserver.start(config.PORT)  # мінізастосунок «Розрахунки»
     log.info("Агент запускається")
     app.run_polling(allowed_updates=Update.ALL_TYPES, drop_pending_updates=True)
 

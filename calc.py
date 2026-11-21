@@ -88,3 +88,24 @@ def result(kind, uid):
     paid, cap = grow(a["monthly"], years)
     return T.CALC_RES_KIDS.format(child_age=a["child_age"], monthly=money(a["monthly"]), years=years,
                                   paid=money(paid), cap=money(cap), rate=T.CALC_RATE, index=T.CALC_INDEX)
+
+
+def from_webapp(uid, raw):
+    """Цифри з мінізастосунку: перевіряємо кожну і зберігаємо як звичайні відповіді. Повертає вид розрахунку або ""."""
+    try:
+        data = json.loads(raw or "{}")
+        kind = data.get("kind", "")
+        if kind not in STEPS:
+            return ""
+        a = {}
+        for key, _, lo, hi in STEPS[kind]:
+            n = int(data[key])
+            if n < lo or n > hi:
+                return ""
+            a[key] = n
+    except (ValueError, KeyError, TypeError):
+        return ""
+    if kind == "pension" and a["retire"] <= a["age"]:
+        return ""
+    answers(uid, a)
+    return kind
