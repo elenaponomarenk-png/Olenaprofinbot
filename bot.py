@@ -16,6 +16,7 @@ from telegram.error import Conflict, Forbidden
 from telegram.ext import (Application, ApplicationBuilder, CallbackQueryHandler, CommandHandler, ContextTypes,
                           MessageHandler, filters)
 
+import calc
 import config
 import db
 import texts as T
@@ -40,13 +41,13 @@ def main_button():
 
 
 def menu_buttons():
-    b = [main_button(), T.BTN_MAIN, T.BTN_PRODUCTS, T.BTN_ASK, T.BTN_CABINET, T.BTN_CONTACTS, T.BTN_ADMIN]
+    b = [main_button(), T.BTN_MAIN, T.BTN_PRODUCTS, T.BTN_CALC, T.BTN_ASK, T.BTN_CABINET, T.BTN_CONTACTS, T.BTN_ADMIN]
     return set(b)
 
 
 def kb_bottom(uid):
     """Нижнє меню: широка головна кнопка зверху, далі по 2 в ряд. Власниці ще «Керування»."""
-    rows = [[main_button()], [T.BTN_PRODUCTS, T.BTN_ASK], [T.BTN_CABINET, T.BTN_CONTACTS]]
+    rows = [[main_button()], [T.BTN_CALC], [T.BTN_PRODUCTS, T.BTN_ASK], [T.BTN_CABINET, T.BTN_CONTACTS]]
     if config.is_admin(uid):
         rows.append([T.BTN_ADMIN])
     return ReplyKeyboardMarkup(rows, resize_keyboard=True, is_persistent=True)
@@ -186,6 +187,10 @@ async def after_start(context, chat_id, uid, src, is_new):
         await ask_start(chat_id, context, uid)
     elif src == "about":
         await show_about(chat_id, context, uid)
+    elif src == "calc":
+        await show_calc_menu(chat_id, context, uid)
+    elif src.startswith("calc_") and src[5:] in calc.STEPS:
+        await calc_start(chat_id, context, uid, src[5:])
 
 
 async def send_gift(bot, chat_id, uid):
@@ -272,11 +277,46 @@ async def show_contacts(chat_id, context, uid=0):
 
 async def ask_start(chat_id, context, uid, topic=""):
     state(uid, f"ask:{topic}")
-    is_consult = topic == "consult" or topic in T.PRODUCTS  # запис на консультацію з «Про мене» або з картки програми
+    is_consult = topic == "consult" or topic in T.PRODUCTS or topic.startswith("calc_")  # запис на консультацію з «Про мене» або з картки програми
     if is_consult:
         db.log_ev(uid, "consult", topic)
     await context.bot.send_message(chat_id, T.ASK_CONSULT if is_consult else T.ASK, parse_mode=HTML,
                                    reply_markup=kb([[(T.BTN_CANCEL, "ask_cancel")]]))
+
+
+async def show_calc_menu(chat_id, context, uid=0):
+    db.log_ev(uid, "calc")
+    markup = kb([[(T.BTN_CALC_SAVE, "calc:save")], [(T.BTN_CALC_PENSION, "calc:pension")],
+                 [(T.BTN_CALC_KIDS, "calc:kids")], [(T.BTN_HOME, "home")]])
+    await context.bot.send_message(chat_id, T.CALC_MENU, parse_mode=HTML, reply_markup=markup)
+
+
+async def calc_start(chat_id, context, uid, kind):
+    state(uid, f"calc:{kind}:0")
+    await context.bot.send_message(chat_id, calc.question(kind, 0), parse_mode=HTML,
+                                   reply_markup=kb([[(T.BTN_BACK, "calc"), (T.BTN_HOME, "home")]]))
+
+
+async def calc_answer(msg, context, uid, st):
+    """Людина відповіла числом на питання калькулятора."""
+    _, kind, step = st.split(":")
+    step = int(step)
+    err, done = calc.take(kind, step, msg.text, uid)
+    if err:
+        await msg.reply_text(err)
+        return
+    if not done:
+        state(uid, f"calc:{kind}:{step + 1}")
+        await msg.reply_text(calc.question(kind, step + 1), parse_mode=HTML,
+                             reply_markup=kb([[(T.BTN_BACK, "calc"), (T.BTN_HOME, "home")]]))
+        return
+    state(uid, "")
+    text = calc.result(kind, uid)
+    db.kv(f"calc_res:{uid}", text)  # Олена побачить цей розрахунок, якщо людина запишеться
+    db.log_ev(uid, f"calc_{kind}")
+    await msg.reply_text(text, parse_mode=HTML, reply_markup=kb([
+        [(T.BTN_CONSULT, f"write:calc_{kind}")],
+        [(T.BTN_CALC_AGAIN, "calc"), (T.BTN_HOME, "home")]]))
 
 
 async def show_admin(chat_id, context, edit_msg=None):
@@ -332,6 +372,11 @@ async def on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif data.startswith("prod:") and data[5:] in T.PRODUCTS:
         db.log_ev(uid, "product", data[5:])
         await show_product(chat_id, context, data[5:], q.message)
+    elif data == "calc":
+        state(uid, "")
+        await show_calc_menu(chat_id, context, uid)
+    elif data.startswith("calc:") and data[5:] in calc.STEPS:
+        await calc_start(chat_id, context, uid, data[5:])
     elif data.startswith("write:"):
         await ask_start(chat_id, context, uid, data[6:])
     elif data == "ask_cancel":
@@ -382,6 +427,8 @@ async def on_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await show_about(chat_id, context, uid)
         elif text == T.BTN_PRODUCTS:
             await show_products(chat_id, context, uid=uid)
+        elif text == T.BTN_CALC:
+            await show_calc_menu(chat_id, context, uid)
         elif text == T.BTN_ASK:
             await ask_start(chat_id, context, uid)
         elif text == T.BTN_CABINET:
@@ -418,7 +465,12 @@ async def on_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                                        reply_markup=kb([[(T.BTN_SEND, "bc_go")], [(T.BTN_EDIT, "bc_edit"), (T.BTN_NOT_NOW, "bc_no")]]))
         return
 
-    # 4) Людина ставить питання: передаємо власниці
+    # 4) Людина рахує в калькуляторі
+    if st.startswith("calc:"):
+        await calc_answer(msg, context, uid, st)
+        return
+
+    # 5) Людина ставить питання: передаємо власниці
     if st.startswith("ask"):
         topic = st.split(":", 1)[1] if ":" in st else ""
         state(uid, "")
@@ -429,6 +481,8 @@ async def on_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             title = title or (f"Запис на консультацію: {T.PRODUCTS[topic][0]}" if topic in T.PRODUCTS else "")
             title = title or T.TOPICS.get(topic) or topic
             head = f"Тема: <b>{esc(title)}</b>\n" + head
+            if topic.startswith("calc_") and db.kv(f"calc_res:{uid}"):
+                head += "\n\n<b>Розрахунок людини:</b>\n" + db.kv(f"calc_res:{uid}")
         for a in config.ADMIN_IDS:
             try:
                 m = await context.bot.send_message(a, head, parse_mode=HTML)
@@ -441,11 +495,11 @@ async def on_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await msg.reply_text(T.ASK_SENT, reply_markup=kb_bottom(uid))
         return
 
-    # 5) Кодові слова продажів (воронки, тест) і службові повідомлення власниці, якщо підключено систему продажів
+    # 6) Кодові слова продажів (воронки, тест) і службові повідомлення власниці, якщо підключено систему продажів
     if launch and await launch.on_message(context, msg, u):
         return
 
-    # 6) Усе інше: м'яко повертаємо в меню
+    # 7) Усе інше: м'яко повертаємо в меню
     await msg.reply_text(T.UNKNOWN, reply_markup=kb_bottom(uid))
 
 
