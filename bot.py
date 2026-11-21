@@ -42,15 +42,22 @@ def main_button():
 
 
 def menu_buttons():
-    b = [main_button(), T.BTN_MAIN, T.BTN_PRODUCTS, T.BTN_CALC, T.BTN_ASK, T.BTN_CABINET, T.BTN_CONTACTS, T.BTN_ADMIN]
+    b = [main_button(), T.BTN_MAIN, T.BTN_PRODUCTS, T.BTN_CALC, T.BTN_CALC_PENSION, T.BTN_CALC_KIDS, T.BTN_CALC_SAVE,
+         T.BTN_ASK, T.BTN_CABINET, T.BTN_CONTACTS, T.BTN_ADMIN]
     return set(b)
 
 
 def kb_bottom(uid):
     """Нижнє меню: широка головна кнопка зверху, далі по 2 в ряд. Власниці ще «Керування»."""
     # «Розрахунки»: якщо є адреса мінізастосунку, кнопка одразу відкриває його, інакше розрахунки в чаті
-    calc_btn = KeyboardButton(T.BTN_CALC, web_app=WebAppInfo(config.WEBAPP_URL)) if config.WEBAPP_URL else T.BTN_CALC
-    rows = [[main_button()], [calc_btn], [T.BTN_PRODUCTS, T.BTN_ASK], [T.BTN_CABINET, T.BTN_CONTACTS]]
+    def calc_btn(text, tab):
+        if not config.WEBAPP_URL:
+            return text
+        return KeyboardButton(text, web_app=WebAppInfo(f"{config.WEBAPP_URL}?tab={tab}"))
+    rows = [[main_button()],
+            [calc_btn(T.BTN_CALC_PENSION, "pension"), calc_btn(T.BTN_CALC_KIDS, "kids")],
+            [calc_btn(T.BTN_CALC_SAVE, "save")],
+            [T.BTN_PRODUCTS, T.BTN_ASK], [T.BTN_CABINET, T.BTN_CONTACTS]]
     if config.is_admin(uid):
         rows.append([T.BTN_ADMIN])
     return ReplyKeyboardMarkup(rows, resize_keyboard=True, is_persistent=True)
@@ -183,7 +190,7 @@ async def after_start(context, chat_id, uid, src, is_new):
         await send_gift(context.bot, chat_id, uid)
     elif (is_new or src == "gift") and T.GIFT_CALC:
         # подарунок-розрахунок: якщо мінізастосунку ще немає, кнопка відкриває розрахунки в чаті
-        markup = None if config.WEBAPP_URL else kb([[(T.BTN_CALC, "calc")]])
+        markup = None if config.WEBAPP_URL else kb([[(T.BTN_CALC_PENSION, "calc:pension")]])
         await context.bot.send_message(chat_id, T.GIFT_CALC, parse_mode=HTML, reply_markup=markup)
         db.log_ev(uid, "gift")
     # Мітка ?start=... може одразу відкривати розділ: ?start=p1 → продукт p1, ?start=ask → питання, ?start=about
@@ -451,6 +458,9 @@ async def on_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await show_products(chat_id, context, uid=uid)
         elif text == T.BTN_CALC:
             await show_calc_menu(chat_id, context, uid)
+        elif text in (T.BTN_CALC_PENSION, T.BTN_CALC_KIDS, T.BTN_CALC_SAVE):  # якщо мінізастосунку ще немає
+            kinds = {T.BTN_CALC_PENSION: "pension", T.BTN_CALC_KIDS: "kids", T.BTN_CALC_SAVE: "save"}
+            await calc_start(chat_id, context, uid, kinds[text])
         elif text == T.BTN_ASK:
             await ask_start(chat_id, context, uid)
         elif text == T.BTN_CABINET:
