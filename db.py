@@ -1,5 +1,6 @@
 """База агента (SQLite). Таблиці: users (люди), kv (прапорці й налаштування), events (що люди робили).
 Додаткові модулі (наприклад, launch.py) створюють свої таблиці самі у своєму setup()."""
+import os
 import sqlite3
 import time
 from contextlib import contextmanager
@@ -9,6 +10,9 @@ import config
 
 @contextmanager
 def conn():
+    folder = os.path.dirname(config.DB_PATH)
+    if folder:
+        os.makedirs(folder, exist_ok=True)  # якщо диска /data ще немає, папка створиться і агент не впаде
     c = sqlite3.connect(config.DB_PATH)
     c.row_factory = sqlite3.Row
     try:
