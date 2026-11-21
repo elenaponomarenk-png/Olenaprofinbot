@@ -75,18 +75,18 @@ def result(kind, uid):
     a = answers(uid)
     if kind == "save":
         paid, cap = grow(a["monthly"], a["years"])
-        return T.CALC_RES_SAVE.format(monthly=money(a["monthly"]), years=a["years"], paid=money(paid), cap=money(cap),
+        return T.CALC_RES_SAVE.format(monthly=money(a["monthly"]), yearly=money(a["monthly"] * 12), years=a["years"], paid=money(paid), cap=money(cap),
                                       rate=T.CALC_RATE, index=T.CALC_INDEX)
     if kind == "pension":
         years = a["retire"] - a["age"]
         paid, cap = grow(a["monthly"], years)
         lines = "\n".join(T.CALC_PENSION_LINE.format(per_month=money(cap / (12 * n)), n=n) for n in T.CALC_PENSION_YEARS)
-        return T.CALC_RES_PENSION.format(age=a["age"], retire=a["retire"], monthly=money(a["monthly"]), years=years,
+        return T.CALC_RES_PENSION.format(age=a["age"], retire=a["retire"], monthly=money(a["monthly"]), yearly=money(a["monthly"] * 12), years=years,
                                          paid=money(paid), cap=money(cap), lines=lines,
                                          rate=T.CALC_RATE, index=T.CALC_INDEX)
     years = 18 - a["child_age"]
     paid, cap = grow(a["monthly"], years)
-    return T.CALC_RES_KIDS.format(child_age=a["child_age"], monthly=money(a["monthly"]), years=years,
+    return T.CALC_RES_KIDS.format(child_age=a["child_age"], monthly=money(a["monthly"]), yearly=money(a["monthly"] * 12), years=years,
                                   paid=money(paid), cap=money(cap), rate=T.CALC_RATE, index=T.CALC_INDEX)
 
 
