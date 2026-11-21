@@ -290,11 +290,26 @@ async def show_contacts(chat_id, context, uid=0):
     await send(context.bot, chat_id, T.CONTACTS, kb(rows), T.PHOTOS.get("contacts"))
 
 
+def topic_title(topic):
+    """Як назвати тему запиту для Олени: «Запис на консультацію: 👶 Для дітей» тощо."""
+    title = launch.topic_title(topic) if launch else ""
+    title = title or (f"Запис на консультацію: {T.PRODUCTS[topic][0]}" if topic in T.PRODUCTS else "")
+    return title or T.TOPICS.get(topic) or topic
+
+
 async def ask_start(chat_id, context, uid, topic=""):
     state(uid, f"ask:{topic}")
     is_consult = topic == "consult" or topic in T.PRODUCTS or topic.startswith("calc_")  # запис на консультацію з «Про мене» або з картки програми
     if is_consult:
         db.log_ev(uid, "consult", topic)
+        if not config.is_admin(uid):  # Олені одразу, навіть якщо людина так нічого й не напише
+            u = db.user(uid) or {}
+            nick = u.get("username")
+            contact = f"@{esc(nick)}" if nick else f'<a href="tg://user?id={uid}">{T.ADMIN_WRITE_LINK}</a>'
+            text = T.ADMIN_CONSULT_CLICK.format(who=who(u), topic=esc(topic_title(topic)), contact=contact)
+            if topic.startswith("calc_") and db.kv(f"calc_res:{uid}"):
+                text += "\n\n<b>Розрахунок людини:</b>\n" + db.kv(f"calc_res:{uid}")
+            await notify_admins(context.bot, text)
     await context.bot.send_message(chat_id, T.ASK_CONSULT if is_consult else T.ASK, parse_mode=HTML,
                                    reply_markup=kb([[(T.BTN_CANCEL, "ask_cancel")]]))
 
@@ -509,10 +524,7 @@ async def on_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         db.log_ev(uid, "question", topic)
         head = T.ADMIN_QUESTION.format(who=who(u), uid=uid, text=esc(text or msg.caption or "(голосове чи файл нижче)"))
         if topic:
-            title = launch.topic_title(topic) if launch else ""
-            title = title or (f"Запис на консультацію: {T.PRODUCTS[topic][0]}" if topic in T.PRODUCTS else "")
-            title = title or T.TOPICS.get(topic) or topic
-            head = f"Тема: <b>{esc(title)}</b>\n" + head
+            head = f"Тема: <b>{esc(topic_title(topic))}</b>\n" + head
             if topic.startswith("calc_") and db.kv(f"calc_res:{uid}"):
                 head += "\n\n<b>Розрахунок людини:</b>\n" + db.kv(f"calc_res:{uid}")
         for a in config.ADMIN_IDS:
