@@ -181,6 +181,11 @@ async def after_start(context, chat_id, uid, src, is_new):
     """Що робити після старту (і після підписки на канал): подарунок новим і розділ за міткою ?start=..."""
     if (is_new or src == "gift") and T.GIFT_FILE:
         await send_gift(context.bot, chat_id, uid)
+    elif (is_new or src == "gift") and T.GIFT_CALC:
+        # подарунок-розрахунок: якщо мінізастосунку ще немає, кнопка відкриває розрахунки в чаті
+        markup = None if config.WEBAPP_URL else kb([[(T.BTN_CALC, "calc")]])
+        await context.bot.send_message(chat_id, T.GIFT_CALC, parse_mode=HTML, reply_markup=markup)
+        db.log_ev(uid, "gift")
     # Мітка ?start=... може одразу відкривати розділ: ?start=p1 → продукт p1, ?start=ask → питання, ?start=about
     if launch and await launch.on_start(context, chat_id, uid, src):
         pass  # продажі: картка запуску, воронка-магніт або тест за міткою
