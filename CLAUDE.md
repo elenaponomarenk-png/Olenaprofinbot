@@ -157,7 +157,7 @@ Claude кладе з нього файли агента в папку, збер�
 
 ## ПОТОЧНИЙ СТАН (оновлює Claude після кожної роботи)
 - Етап: 3 готовий. Далі етап 4 (тексти й меню під себе).
-- Фото: images/welcome.jpg (у кафе, усміхається в камеру), images/about.jpg (біла сорочка, рука біля обличчя), images/contacts.jpg (біла сорочка, дивиться вбік).
+- Фото: по порядку, як дала власниця: images/welcome.jpg (біла сорочка, рука біля обличчя, дивиться в камеру), images/about.jpg (біла сорочка, дивиться вбік), images/contacts.jpg (у кафе за столиком).
 - Зроблено: етап 1 (файли в папці). Етап 2: Railway, проєкт gallant-mercy, сервіс Olenaprofinbot, диск olenaprofinbot-volume (/data),
   змінні BOT_TOKEN, DB_PATH=/data/bot.db, ADMIN_ID. Агент вітає, меню і «⚙️ Керування» працюють. Зайвий проєкт welcoming-wisdom видалено.
 - Важливо: агент = бот @Olenaprofinancebot (у Telegram підписаний «Olenaprofinbot»). Бот @Olenaprofinbot («Фінансовий план життя»)
