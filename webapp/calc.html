@@ -94,8 +94,9 @@ const CALCS = {
              ["retire", "Вік виходу на пенсію", "коли хочете отримувати пенсію", 45, 75, 1, 60, "р."],
              ["monthly", "Відкладаю на місяць", "", 500, 50000, 100, 1000, "грн"],
              ["yearly", "Відкладаю на рік", "", 6000, 600000, 1200, 12000, "грн"]] },
-  kids: { title: "Капітал для дитини", sub: "Скільки буде у дитини в 18 років",
+  kids: { title: "Капітал для дитини", sub: "Скільки буде у дитини до 18-27 років",
     fields: [["child_age", "Вік дитини зараз", "0-17 років", 0, 17, 1, 0, "р."],
+             ["target", "До якого віку накопичуємо", "від 18 до 27 років", 18, 27, 1, 18, "р."],
              ["monthly", "Відкладаю на місяць", "", 500, 50000, 100, 1000, "грн"],
              ["yearly", "Відкладаю на рік", "", 6000, 600000, 1200, 12000, "грн"]] },
 };
@@ -164,9 +165,9 @@ function current() {
 
 function calcNow() {
   const o = current(), res = document.getElementById("res");
-  let years = kind === "save" ? o.years : kind === "pension" ? o.retire - o.age : 18 - o.child_age;
+  let years = kind === "save" ? o.years : kind === "pension" ? o.retire - o.age : o.target - o.child_age;
   const [paid, cap] = grow(o.monthly, years);
-  let html = `<div class="hint">${kind === "kids" ? "У 18 років у дитини буде" : kind === "pension" ? "До пенсії накопичиться" : "У вас буде"}</div>
+  let html = `<div class="hint">${kind === "kids" ? `У ${o.target} років у дитини буде` : kind === "pension" ? "До пенсії накопичиться" : "У вас буде"}</div>
     <div class="big">${money(cap)} грн</div>
     <div class="line"><span>Ви внесете за ${years} р.</span><b>${money(paid)} грн</b></div>`;
   if (kind === "pension") {

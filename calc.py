@@ -11,7 +11,8 @@ STEPS = {
     "save": [("monthly", T.CALC_Q_MONTHLY, 100, 10_000_000), ("years", T.CALC_Q_YEARS, 1, 50)],
     "pension": [("age", T.CALC_Q_AGE, 16, 80), ("retire", T.CALC_Q_RETIRE, 30, 90),
                 ("monthly", T.CALC_Q_MONTHLY, 100, 10_000_000)],
-    "kids": [("child_age", T.CALC_Q_CHILD_AGE, 0, 17), ("monthly", T.CALC_Q_MONTHLY, 100, 10_000_000)],
+    "kids": [("child_age", T.CALC_Q_CHILD_AGE, 0, 17), ("target", T.CALC_Q_TARGET, 18, 27),
+             ("monthly", T.CALC_Q_MONTHLY, 100, 10_000_000)],
 }
 
 
@@ -84,9 +85,10 @@ def result(kind, uid):
         return T.CALC_RES_PENSION.format(age=a["age"], retire=a["retire"], monthly=money(a["monthly"]), yearly=money(a["monthly"] * 12), years=years,
                                          paid=money(paid), cap=money(cap), lines=lines,
                                          rate=T.CALC_RATE, index=T.CALC_INDEX)
-    years = 18 - a["child_age"]
+    target = a.get("target", 18)
+    years = target - a["child_age"]
     paid, cap = grow(a["monthly"], years)
-    return T.CALC_RES_KIDS.format(child_age=a["child_age"], monthly=money(a["monthly"]), yearly=money(a["monthly"] * 12), years=years,
+    return T.CALC_RES_KIDS.format(child_age=a["child_age"], target=target, monthly=money(a["monthly"]), yearly=money(a["monthly"] * 12), years=years,
                                   paid=money(paid), cap=money(cap), rate=T.CALC_RATE, index=T.CALC_INDEX)
 
 
