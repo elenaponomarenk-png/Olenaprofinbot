@@ -11,7 +11,7 @@ STEPS = {
     "save": [("monthly", T.CALC_Q_MONTHLY, 100, 10_000_000), ("years", T.CALC_Q_YEARS, 1, 50)],
     "pension": [("age", T.CALC_Q_AGE, 16, 80), ("retire", T.CALC_Q_RETIRE, 30, 90),
                 ("monthly", T.CALC_Q_MONTHLY, 100, 10_000_000)],
-    "kids": [("child_age", T.CALC_Q_CHILD_AGE, 0, 17), ("target", T.CALC_Q_TARGET, 18, 27),
+    "kids": [("child_age", T.CALC_Q_CHILD_AGE, 0, 26), ("target", T.CALC_Q_TARGET, 1, 27),
              ("monthly", T.CALC_Q_MONTHLY, 100, 10_000_000)],
 }
 
@@ -66,6 +66,8 @@ def take(kind, step, text, uid):
     a = answers(uid) if step else {}
     if key == "retire" and n <= a.get("age", 0):
         return T.CALC_RETIRE_TOO_EARLY, False
+    if key == "target" and n <= a.get("child_age", 0):
+        return T.CALC_TARGET_TOO_EARLY, False
     a[key] = n
     answers(uid, a)
     return "", step + 1 >= len(STEPS[kind])
@@ -108,6 +110,8 @@ def from_webapp(uid, raw):
     except (ValueError, KeyError, TypeError):
         return ""
     if kind == "pension" and a["retire"] <= a["age"]:
+        return ""
+    if kind == "kids" and a["target"] <= a["child_age"]:
         return ""
     answers(uid, a)
     return kind

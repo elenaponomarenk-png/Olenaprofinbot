@@ -94,9 +94,9 @@ const CALCS = {
              ["retire", "Вік виходу на пенсію", "коли хочете отримувати пенсію", 45, 75, 1, 60, "р."],
              ["monthly", "Відкладаю на місяць", "", 500, 50000, 100, 1000, "грн"],
              ["yearly", "Відкладаю на рік", "", 6000, 600000, 1200, 12000, "грн"]] },
-  kids: { title: "Капітал для дитини", sub: "Скільки буде у дитини до 18-27 років",
-    fields: [["child_age", "Вік дитини зараз", "0-17 років", 0, 17, 1, 0, "р."],
-             ["target", "До якого віку накопичуємо", "від 18 до 27 років", 18, 27, 1, 18, "р."],
+  kids: { title: "Капітал для дитини", sub: "Накопичення для дитини до 27 років",
+    fields: [["child_age", "Вік дитини зараз", "0-26 років", 0, 26, 1, 0, "р."],
+             ["target", "До якого віку накопичуємо", "до 27 років", 1, 27, 1, 18, "р."],
              ["monthly", "Відкладаю на місяць", "", 500, 50000, 100, 1000, "грн"],
              ["yearly", "Відкладаю на рік", "", 6000, 600000, 1200, 12000, "грн"]] },
 };
@@ -129,6 +129,8 @@ function render() {
       shows[key](v);
       if (key === "monthly" && shows.yearly) shows.yearly(v * 12);       // на місяць → на рік
       if (key === "yearly" && shows.monthly) shows.monthly(Math.round(v / 12));  // на рік → на місяць
+      if (key === "child_age" && shows.target && vals[kind + "target"] <= v) shows.target(Math.min(27, v + 1));
+      if (key === "age" && shows.retire && vals[kind + "retire"] <= v) shows.retire(v + 1);
       calcNow();
     };
     rng.oninput = () => set(+rng.value);
@@ -160,6 +162,7 @@ function current() {
   const o = { kind };
   CALCS[kind].fields.forEach(([key]) => o[key] = vals[kind + key]);
   if (kind === "pension" && o.retire <= o.age) o.retire = o.age + 1;
+  if (kind === "kids" && o.target <= o.child_age) o.target = Math.min(27, o.child_age + 1);
   return o;
 }
 
@@ -167,7 +170,7 @@ function calcNow() {
   const o = current(), res = document.getElementById("res");
   let years = kind === "save" ? o.years : kind === "pension" ? o.retire - o.age : o.target - o.child_age;
   const [paid, cap] = grow(o.monthly, years);
-  let html = `<div class="hint">${kind === "kids" ? `У ${o.target} років у дитини буде` : kind === "pension" ? "До пенсії накопичиться" : "У вас буде"}</div>
+  let html = `<div class="hint">${kind === "kids" ? `Коли дитині виповниться ${o.target}, буде` : kind === "pension" ? "До пенсії накопичиться" : "У вас буде"}</div>
     <div class="big">${money(cap)} грн</div>
     <div class="line"><span>Ви внесете за ${years} р.</span><b>${money(paid)} грн</b></div>`;
   if (kind === "pension") {
