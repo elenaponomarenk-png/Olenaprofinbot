@@ -11,7 +11,7 @@ STEPS = {
     "save": [("monthly", T.CALC_Q_MONTHLY, 100, 10_000_000), ("years", T.CALC_Q_YEARS, 1, 50)],
     "pension": [("age", T.CALC_Q_AGE, 16, 80), ("retire", T.CALC_Q_RETIRE, 30, 90),
                 ("monthly", T.CALC_Q_MONTHLY, 100, 10_000_000)],
-    "kids": [("child_age", T.CALC_Q_CHILD_AGE, 0, 26), ("target", T.CALC_Q_TARGET, 1, 27),
+    "kids": [("child_age", T.CALC_Q_CHILD_AGE, 0, 18), ("target", T.CALC_Q_TARGET, 1, 27),
              ("monthly", T.CALC_Q_MONTHLY, 100, 10_000_000)],
 }
 
