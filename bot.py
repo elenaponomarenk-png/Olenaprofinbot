@@ -5,6 +5,7 @@
 import asyncio
 import html
 import json
+import re
 import logging
 import os
 from collections import Counter
@@ -301,7 +302,7 @@ def topic_title(topic):
 
 async def ask_start(chat_id, context, uid, topic=""):
     state(uid, f"ask:{topic}")
-    is_consult = topic == "consult" or topic in T.PRODUCTS or topic.startswith("calc_")  # запис на консультацію з «Про мене» або з картки програми
+    is_consult = topic in ("consult", "tip") or topic in T.PRODUCTS or topic.startswith("calc_")  # запис на консультацію з «Про мене» або з картки програми
     if is_consult:
         db.log_ev(uid, "consult", topic)
         # Одне натискання = запис: Олені одразу запит (на нього можна «Відповісти»), людині підтвердження
@@ -372,7 +373,8 @@ async def show_admin(chat_id, context, edit_msg=None):
     total, week, src = db.stats()
     sources = "\n".join(f"• {esc(s)}: {n}" for s, n in src) or "• поки нікого"
     text = T.ADMIN_MENU.format(total=total, week=week, sources=sources)
-    rows = [[(T.BTN_BROADCAST, "bc"), (T.BTN_REPORT, "report")], [(T.BTN_CALC_LIST, "calcs")], [(T.BTN_STATS, "adm")]]
+    rows = [[(T.BTN_BROADCAST, "bc"), (T.BTN_REPORT, "report")], [(T.BTN_CALC_LIST, "calcs"), (T.BTN_TIPS, "tips")],
+            [(T.BTN_STATS, "adm")]]
     if launch:
         rows = launch.admin_rows() + rows
     markup = kb(rows)
@@ -433,6 +435,36 @@ async def on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await context.bot.send_message(chat_id, T.ASK_CANCELLED, reply_markup=kb_bottom(uid))
     elif config.is_admin(uid) and data == "adm":
         await show_admin(chat_id, context, q.message)
+    elif data == "tip:next":
+        db.log_ev(uid, "tip_next")
+        n = int(db.kv(f"tip_n:{uid}") or 0)
+        if n < len(tips_all()):
+            db.kv(f"tip_n:{uid}", n + 1)
+            await send_tip(context.bot, chat_id, n, uid)
+        else:
+            await context.bot.send_message(chat_id, T.TIP_NO_MORE, reply_markup=kb_bottom(uid))
+    elif data == "tip:off":
+        db.kv(f"tip_off:{uid}", "1")
+        db.log_ev(uid, "tip_off")
+        await context.bot.send_message(chat_id, T.TIP_OFF_DONE, reply_markup=kb_bottom(uid))
+    elif data.startswith("goal:") and data[5:] in T.GOALS:
+        await on_goal(context, chat_id, uid, data[5:])
+    elif config.is_admin(uid) and data == "tips":
+        await show_tips_admin(context.bot, chat_id)
+    elif config.is_admin(uid) and data == "tip_add":
+        state(uid, "tip_wait")
+        await context.bot.send_message(chat_id, T.TIP_ADD_ASK.format(n=len(tips_all()) + 1),
+                                       reply_markup=kb([[(T.BTN_CANCEL, "bc_no")]]))
+    elif config.is_admin(uid) and data.startswith("tip_show:"):
+        await send_tip(context.bot, chat_id, int(data[9:]), 0)
+    elif config.is_admin(uid) and data.startswith("tip_del:"):
+        i = int(data[8:]) - len(T.TIPS)
+        custom = tips_custom()
+        if 0 <= i < len(custom):
+            custom.pop(i)
+            db.kv("tips_custom", json.dumps(custom))
+            await context.bot.send_message(chat_id, T.TIP_DELETED.format(n=int(data[8:]) + 1))
+        await show_tips_admin(context.bot, chat_id)
     elif config.is_admin(uid) and data == "calcs":
         for part in calc_list_texts():
             await context.bot.send_message(chat_id, part, parse_mode=HTML, disable_web_page_preview=True)
@@ -519,6 +551,24 @@ async def on_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     st = state(uid)
 
+    # 3а) Власниця додає текст у серію «Корисне»
+    if config.is_admin(uid) and st == "tip_wait":
+        state(uid, "")
+        if msg.photo:
+            item = {"photo": msg.photo[-1].file_id, "text": msg.caption_html or ""}
+        else:
+            item = {"text": msg.text_html or ""}
+        if not item["text"] and "photo" not in item:
+            await msg.reply_text(T.CALC_NOT_NUMBER)
+            return
+        custom = tips_custom()
+        custom.append(item)
+        db.kv("tips_custom", json.dumps(custom))
+        n = len(tips_all())
+        await send_tip(context.bot, chat_id, n - 1, 0)
+        await msg.reply_text(T.TIP_ADDED.format(n=n), reply_markup=kb([[(T.BTN_TIPS, "tips")]]))
+        return
+
     # 3) Власниця готує розсилку: показуємо прев'ю
     if config.is_admin(uid) and st == "bc_wait":
         db.kv(f"bc_src:{uid}", f"{chat_id}:{msg.message_id}")
@@ -594,6 +644,122 @@ async def broadcast(context, chat_id, uid):
     await context.bot.send_message(chat_id, T.BC_DONE.format(ok=ok, fail=fail), reply_markup=kb_bottom(uid))
 
 
+# ================== «📚 Корисне»: серія текстів по одному на день ==================
+
+def tips_custom():
+    try:
+        return json.loads(db.kv("tips_custom") or "[]")
+    except ValueError:
+        return []
+
+
+def tips_all():
+    """Вбудовані тексти з texts.py, потім ті, що Олена додала в агенті."""
+    return list(T.TIPS) + tips_custom()
+
+
+def tip_markup(kind):
+    off = [(T.BTN_TIP_OFF, "tip:off")]
+    if kind == "next":
+        return kb([[(T.BTN_TIP_NEXT, "tip:next")], off])
+    if kind == "calc":
+        return kb([[(T.BTN_TIP_PENSION, "calc:pension"), (T.BTN_TIP_KIDS, "calc:kids")],
+                   [(T.BTN_TIP_SAVE, "calc:save")], [(T.BTN_CONSULT, "write:tip")], off])
+    if kind == "channel":
+        return kb([[(T.BTN_TIP_CHANNEL, T.TIP_CHANNEL_URL)], off])
+    if kind == "goal":
+        return kb([[(name, f"goal:{key}")] for key, name in T.GOALS.items()] + [off])
+    return kb([[(T.BTN_CONSULT, "write:tip")], off])
+
+
+async def send_tip(bot, chat_id, idx, uid):
+    """Надсилає текст серії номер idx (з 0). uid=0: показ власниці."""
+    items = tips_all()
+    if not 0 <= idx < len(items):
+        return
+    item = items[idx]
+    markup = tip_markup(item.get("kind", ""))
+    text = item.get("text") or ""
+    if item.get("photo"):
+        short = len(text) <= 1000
+        await bot.send_photo(chat_id, item["photo"], caption=text if short else None, parse_mode=HTML,
+                             reply_markup=markup if short else None)
+        if not short:
+            await bot.send_message(chat_id, text, parse_mode=HTML, reply_markup=markup, disable_web_page_preview=True)
+    else:
+        await bot.send_message(chat_id, text, parse_mode=HTML, reply_markup=markup, disable_web_page_preview=True)
+    if uid:
+        db.log_ev(uid, "tip", str(idx + 1))
+
+
+async def on_goal(context, chat_id, uid, goal):
+    """Людина обрала ціль у серії: Олені одразу (можна «Відповісти»), людині подяка і запис."""
+    db.log_ev(uid, "goal", goal)
+    if not config.is_admin(uid):
+        u = db.user(uid) or {}
+        nick = u.get("username")
+        contact = f"@{esc(nick)}" if nick else f'<a href="tg://user?id={uid}">{T.ADMIN_WRITE_LINK}</a>'
+        for a in config.ADMIN_IDS:
+            try:
+                m = await context.bot.send_message(a, T.ADMIN_GOAL.format(who=who(u), goal=esc(T.GOALS[goal]),
+                                                                        contact=contact), parse_mode=HTML)
+                db.kv(f"q:{m.message_id}", uid)
+            except Exception as e:
+                log.warning("goal to admin: %s", e)
+    await context.bot.send_message(chat_id, T.GOAL_THANKS, parse_mode=HTML,
+                                   reply_markup=kb([[(T.BTN_CONSULT, "write:tip")], [(T.BTN_HOME, "home")]]))
+
+
+async def show_tips_admin(bot, chat_id):
+    items = tips_all()
+    lines, btns = [], []
+    for i, item in enumerate(items):
+        raw = html.unescape(re.sub(r"<[^>]+>", "", item.get("text") or "")).replace("\n", " ").strip()
+        preview = esc(raw[:60] + ("…" if len(raw) > 60 else "")) or "(фото)"
+        lines.append(T.TIPS_ITEM.format(n=i + 1, mark="📷 " if item.get("photo") else "", preview=preview))
+        btns.append((f"👁 {i + 1}", f"tip_show:{i}"))
+        if i >= len(T.TIPS):
+            btns.append((f"🗑 {i + 1}", f"tip_del:{i}"))
+    rows = [btns[i:i + 4] for i in range(0, len(btns), 4)]
+    rows.append([(T.BTN_TIP_ADD, "tip_add")])
+    rows.append([(T.BTN_BACK, "adm")])
+    await bot.send_message(chat_id, T.TIPS_ADMIN.format(hour=T.TIPS_HOUR, n=len(items), items="\n".join(lines),
+                                                       base=len(T.TIPS)), parse_mode=HTML, reply_markup=kb(rows))
+
+
+async def tips_job(context):
+    """Раз на день о TIPS_HOUR за Києвом: кожному наступний текст серії (не в день «Старт», не тим, хто вимкнув)."""
+    now = datetime.now(config.TZ)
+    if now.hour < T.TIPS_HOUR:
+        return
+    day = now.strftime("%Y-%m-%d")
+    if db.kv("tips_day") == day:
+        return
+    db.kv("tips_day", day)  # ДО відправки: після перезапуску повтору не буде
+    items = tips_all()
+    today = int(now.replace(hour=0, minute=0, second=0, microsecond=0).timestamp())
+    with db.conn() as c:
+        users = [r[0] for r in c.execute(
+            "SELECT user_id FROM users WHERE COALESCE(blocked,0)=0 AND joined<?", (today,)).fetchall()]
+    sent = 0
+    for uid in users:
+        if config.is_admin(uid) or db.kv(f"tip_off:{uid}") == "1":
+            continue
+        n = int(db.kv(f"tip_n:{uid}") or 0)
+        if n >= len(items):
+            continue
+        db.kv(f"tip_n:{uid}", n + 1)
+        try:
+            await send_tip(context.bot, uid, n, uid)
+            sent += 1
+        except Forbidden:
+            db.set_blocked(uid)
+        except Exception as e:
+            log.warning("tip %s: %s", uid, e)
+        await asyncio.sleep(0.06)
+    log.info("tips sent: %s", sent)
+
+
 # ================== «🧮 Хто рахував» для власниці ==================
 
 def calc_list_texts(days=30, limit=40):
@@ -601,14 +767,15 @@ def calc_list_texts(days=30, limit=40):
     since = int((datetime.now(config.TZ) - timedelta(days=days)).timestamp())
     with db.conn() as c:
         evs = [dict(r) for r in c.execute(
-            "SELECT user_id, ev, extra, at FROM events WHERE at>=? AND (ev LIKE 'calc_%' OR ev='consult') ORDER BY at",
+            "SELECT user_id, ev, extra, at FROM events WHERE at>=? AND (ev LIKE 'calc_%' OR ev IN ('consult', 'goal')) "
+            "ORDER BY at",
             (since,)).fetchall()]
     people = {}
     for e in evs:
         uid = e["user_id"]
         if not uid or config.is_admin(uid):
             continue
-        p = people.setdefault(uid, {"kind": "", "nums": None, "done": False, "consult": False, "at": 0})
+        p = people.setdefault(uid, {"kind": "", "nums": None, "done": False, "consult": False, "at": 0, "goal": ""})
         p["at"] = e["at"]
         if e["ev"] == "calc_start":
             p["kind"], p["done"] = e["extra"], False
@@ -618,10 +785,12 @@ def calc_list_texts(days=30, limit=40):
                 p["nums"] = json.loads(e["extra"]) if e["extra"] else None
             except ValueError:
                 p["nums"] = None
+        elif e["ev"] == "goal":
+            p["goal"] = T.GOALS.get(e["extra"], e["extra"])
         elif e["ev"] == "consult" and (e["extra"] or "").startswith("calc_"):
             p["consult"] = True
             p["kind"] = p["kind"] or e["extra"][5:]
-    people = {u: p for u, p in people.items() if p["kind"] in calc.STEPS}
+    people = {u: p for u, p in people.items() if p["kind"] in calc.STEPS or p["goal"]}
     if not people:
         return [T.CALC_LIST_EMPTY]
     lines = []
@@ -629,6 +798,11 @@ def calc_list_texts(days=30, limit=40):
         u = db.user(uid) or {}
         nick = u.get("username")
         contact = f"@{esc(nick)}" if nick else f'<a href="tg://user?id={uid}">{T.ADMIN_WRITE_LINK}</a> (без ніка)'
+        day = datetime.fromtimestamp(p["at"], config.TZ).strftime("%d.%m")
+        if p["kind"] not in calc.STEPS:  # тільки обрав ціль у «Корисному»
+            lines.append(T.CALC_LIST_GOAL_ONLY.format(n=n, name=esc(u.get("name") or uid), contact=contact,
+                                                      goal=esc(p["goal"]), day=day))
+            continue
         a = p["nums"] or {}
         if p["kind"] == "pension" and a:
             nums = T.CALC_LIST_PENSION.format(age=a.get("age"), retire=a.get("retire"), m=calc.money(a.get("monthly", 0)))
@@ -647,9 +821,11 @@ def calc_list_texts(days=30, limit=40):
             step = int(st.split(":")[2]) + 1 if st.startswith(f"calc:{p['kind']}:") else 0
             status = (T.CALC_LIST_STEP.format(step=step, total=len(calc.STEPS[p["kind"]])) if step
                       else T.CALC_LIST_STOPPED)
-        day = datetime.fromtimestamp(p["at"], config.TZ).strftime("%d.%m")
-        lines.append(T.CALC_LIST_ITEM.format(n=n, name=esc(u.get("name") or uid), contact=contact,
-                                             title=T.CALC_LIST_TITLES[p["kind"]], nums=nums, status=status, day=day))
+        item = T.CALC_LIST_ITEM.format(n=n, name=esc(u.get("name") or uid), contact=contact,
+                                       title=T.CALC_LIST_TITLES[p["kind"]], nums=nums, status=status, day=day)
+        if p["goal"]:
+            item += "\n" + T.CALC_LIST_GOAL.format(goal=esc(p["goal"]))
+        lines.append(item)
     parts, cur = [], T.CALC_LIST_HEAD.format(days=days, total=len(people), shown=len(lines))
     for line in lines:
         if len(cur) + len(line) > 3500:
@@ -749,6 +925,7 @@ def main():
         launch.add_handlers(app)  # /grupa і задачі продажів за розкладом
     app.add_handler(MessageHandler(filters.ChatType.PRIVATE & ~filters.COMMAND, on_message))
     app.job_queue.run_repeating(report_job, interval=600, first=60)  # звіт о 9:00, один раз на день
+    app.job_queue.run_repeating(tips_job, interval=300, first=90)  # «Корисне» о TIPS_HOUR, один раз на день
     app.add_error_handler(on_error)
     webserver.start(config.PORT)  # мінізастосунок «Розрахунки»
     log.info("Агент запускається")
