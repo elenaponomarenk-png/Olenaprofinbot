@@ -12,7 +12,8 @@ from datetime import datetime, timedelta
 from telegram import (BotCommand, BotCommandScopeChat, InlineKeyboardButton, InlineKeyboardMarkup, KeyboardButton,
                       ReplyKeyboardMarkup, Update, WebAppInfo)
 from telegram.constants import ParseMode
-from telegram.error import Conflict, Forbidden
+import httpx
+from telegram.error import BadRequest, Conflict, Forbidden, NetworkError
 from telegram.ext import (Application, ApplicationBuilder, CallbackQueryHandler, CommandHandler, ContextTypes,
                           MessageHandler, filters)
 
@@ -634,6 +635,10 @@ async def report_job(context):
 async def on_error(update: object, context: ContextTypes.DEFAULT_TYPE):
     if isinstance(context.error, Conflict):  # під час оновлення стара і нова копія агента кілька секунд працюють разом
         log.warning("conflict: %s", context.error)
+        return
+    if isinstance(context.error, (NetworkError, httpx.HTTPError)) and not isinstance(context.error, (BadRequest, Forbidden)):
+        # короткий збій зв'язку з Telegram: агент сам перепідключиться, власниці не пишемо
+        log.warning("network: %s", context.error)
         return
     log.exception("error", exc_info=context.error)
     try:
