@@ -275,14 +275,14 @@ function calcNow() {
   else if (kind === "pension") { head = `З ${o.retire} ${yrs(o.retire)} (${YEAR + n} рік) пенсія протягом ${PENSION_YEARS[0]} років`;
     big = `≈ ${money(cap / (12 * PENSION_YEARS[0]))} <small>грн на місяць</small>`; }
   else { head = `Через ${n} ${yrs(n)} (${YEAR + n} рік) у вас буде`; big = `≈ ${money(cap)} <small>грн</small>`; }
-  hero.innerHTML = `<div class="t">${head}</div><div class="big">${big}</div><div class="n">Прогноз, дохід не гарантований</div>`;
+  hero.innerHTML = `<div class="t">${head}</div><div class="big">${big}</div><div class="n">Прогноз</div>`;
   let html = "";
   if (mode === "goal") html += `<div class="need"><div class="t">Для цього відкладайте</div>
     <div class="big">≈ ${money(o.monthly)} <small>грн на місяць</small></div>
     <div class="t">або ≈ ${money(o.monthly * 12)} грн на рік (перший рік, далі +${INDEX}% щороку)</div></div>`;
   html += `<div class="line"${mode === "pay" ? ' style="border-top:0"' : ""}><span>Програма</span><b>${n} ${yrs(n)}</b></div>
     <div class="line"><span>Внесете</span><b>${money(paid)} грн</b></div>
-    <div class="line"><span>Інвестиційний дохід<span class="h">прогноз, не гарантований</span></span><b class="g">+ ≈ ${money(cap - paid)} грн</b></div>
+    <div class="line"><span>Інвестиційний дохід<span class="h">прогноз</span></span><b class="g">+ ≈ ${money(cap - paid)} грн</b></div>
     <div class="line"><span>Разом</span><b class="g">≈ ${money(cap)} грн</b></div>`;
   if (kind === "pension") PENSION_YEARS.forEach(y => html += `<div class="line"><span>Пенсія на ${y} років</span><b>${money(cap / (12 * y))} грн/міс</b></div>`);
   res.innerHTML = html;
