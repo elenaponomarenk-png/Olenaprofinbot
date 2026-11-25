@@ -665,6 +665,8 @@ def tip_markup(kind):
     if kind == "calc":
         return kb([[(T.BTN_TIP_PENSION, "calc:pension"), (T.BTN_TIP_KIDS, "calc:kids")],
                    [(T.BTN_TIP_SAVE, "calc:save")], [(T.BTN_CONSULT, "write:tip")], off])
+    if kind == "channel":
+        return kb([[(T.BTN_TIP_CHANNEL, T.TIP_CHANNEL_URL)], off])
     if kind == "goal":
         return kb([[(name, f"goal:{key}")] for key, name in T.GOALS.items()] + [off])
     return kb([[(T.BTN_CONSULT, "write:tip")], off])
