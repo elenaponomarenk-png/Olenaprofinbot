@@ -9,6 +9,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import texts as T
 
 log = logging.getLogger("webapp")
+BOT_USERNAME = "Olenaprofinancebot"  # агент сам уточнює при запуску
 PAGE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "webapp", "calc.html")
 
 
@@ -16,7 +17,7 @@ def page():
     with open(PAGE, encoding="utf-8") as f:
         html = f.read()
     return (html.replace("{{RATE}}", str(T.CALC_RATE)).replace("{{INDEX}}", str(T.CALC_INDEX))
-            .replace("{{PENSION_YEARS}}", json.dumps(list(T.CALC_PENSION_YEARS))))
+            .replace("{{PENSION_YEARS}}", json.dumps(list(T.CALC_PENSION_YEARS))).replace("{{BOT}}", BOT_USERNAME))
 
 
 class Handler(BaseHTTPRequestHandler):

@@ -95,23 +95,26 @@ def result(kind, uid):
 
 
 def from_webapp(uid, raw):
-    """Цифри з мінізастосунку: перевіряємо кожну і зберігаємо як звичайні відповіді. Повертає вид розрахунку або ""."""
+    """Цифри з мінізастосунку: перевіряємо кожну і зберігаємо як звичайні відповіді.
+    Повертає (вид розрахунку або "", що натиснула людина: "consult" чи "save", мета в грн або 0)."""
     try:
         data = json.loads(raw or "{}")
         kind = data.get("kind", "")
         if kind not in STEPS:
-            return ""
+            return "", "", 0
+        action = "consult" if data.get("action") == "consult" else "save"
+        goal = max(0, min(10 ** 9, int(data.get("goal") or 0)))
         a = {}
         for key, _, lo, hi in STEPS[kind]:
             n = int(data[key])
             if n < lo or n > hi:
-                return ""
+                return "", "", 0
             a[key] = n
     except (ValueError, KeyError, TypeError):
-        return ""
+        return "", "", 0
     if kind == "pension" and a["retire"] <= a["age"]:
-        return ""
+        return "", "", 0
     if kind == "kids" and a["target"] <= a["child_age"]:
-        return ""
+        return "", "", 0
     answers(uid, a)
-    return kind
+    return kind, action, goal
