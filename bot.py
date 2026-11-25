@@ -4,6 +4,7 @@
 Додаток продажів (launch.py + wfp.py + texts_launch.py) підключається сам, якщо ці файли є в папці."""
 import asyncio
 import html
+import json
 import logging
 import os
 from collections import Counter
@@ -335,6 +336,7 @@ async def show_calc_menu(chat_id, context, uid=0):
 
 async def calc_start(chat_id, context, uid, kind):
     state(uid, f"calc:{kind}:0")
+    db.log_ev(uid, "calc_start", kind)
     await context.bot.send_message(chat_id, calc.question(kind, 0), parse_mode=HTML,
                                    reply_markup=kb([[(T.BTN_BACK, "calc"), (T.BTN_HOME, "home")]]))
 
@@ -360,7 +362,7 @@ async def calc_finish(msg, uid, kind):
     state(uid, "")
     text = calc.result(kind, uid)
     db.kv(f"calc_res:{uid}", text)  # Олена побачить цей розрахунок, якщо людина запишеться
-    db.log_ev(uid, f"calc_{kind}")
+    db.log_ev(uid, f"calc_{kind}", json.dumps(calc.answers(uid)))  # цифри людини для «🧮 Хто рахував»
     await msg.reply_text(text, parse_mode=HTML, reply_markup=kb([
         [(T.BTN_CONSULT, f"write:calc_{kind}")],
         [(T.BTN_CALC_AGAIN, "calc"), (T.BTN_HOME, "home")]]))
@@ -370,7 +372,7 @@ async def show_admin(chat_id, context, edit_msg=None):
     total, week, src = db.stats()
     sources = "\n".join(f"• {esc(s)}: {n}" for s, n in src) or "• поки нікого"
     text = T.ADMIN_MENU.format(total=total, week=week, sources=sources)
-    rows = [[(T.BTN_BROADCAST, "bc"), (T.BTN_REPORT, "report")], [(T.BTN_STATS, "adm")]]
+    rows = [[(T.BTN_BROADCAST, "bc"), (T.BTN_REPORT, "report")], [(T.BTN_CALC_LIST, "calcs")], [(T.BTN_STATS, "adm")]]
     if launch:
         rows = launch.admin_rows() + rows
     markup = kb(rows)
@@ -431,6 +433,9 @@ async def on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await context.bot.send_message(chat_id, T.ASK_CANCELLED, reply_markup=kb_bottom(uid))
     elif config.is_admin(uid) and data == "adm":
         await show_admin(chat_id, context, q.message)
+    elif config.is_admin(uid) and data == "calcs":
+        for part in calc_list_texts():
+            await context.bot.send_message(chat_id, part, parse_mode=HTML, disable_web_page_preview=True)
     elif config.is_admin(uid) and data == "report":
         await context.bot.send_message(chat_id, report_text(), parse_mode=HTML)
     elif config.is_admin(uid) and launch and data == "members":
@@ -587,6 +592,72 @@ async def broadcast(context, chat_id, uid):
             fail += 1
         await asyncio.sleep(0.06)
     await context.bot.send_message(chat_id, T.BC_DONE.format(ok=ok, fail=fail), reply_markup=kb_bottom(uid))
+
+
+# ================== «🧮 Хто рахував» для власниці ==================
+
+def calc_list_texts(days=30, limit=40):
+    """Люди, які рахували за останні days днів: що рахували, з якими цифрами і де зупинились. Частинами до 3500 знаків."""
+    since = int((datetime.now(config.TZ) - timedelta(days=days)).timestamp())
+    with db.conn() as c:
+        evs = [dict(r) for r in c.execute(
+            "SELECT user_id, ev, extra, at FROM events WHERE at>=? AND (ev LIKE 'calc_%' OR ev='consult') ORDER BY at",
+            (since,)).fetchall()]
+    people = {}
+    for e in evs:
+        uid = e["user_id"]
+        if not uid or config.is_admin(uid):
+            continue
+        p = people.setdefault(uid, {"kind": "", "nums": None, "done": False, "consult": False, "at": 0})
+        p["at"] = e["at"]
+        if e["ev"] == "calc_start":
+            p["kind"], p["done"] = e["extra"], False
+        elif e["ev"] in ("calc_save", "calc_pension", "calc_kids"):
+            p["kind"], p["done"] = e["ev"][5:], True
+            try:
+                p["nums"] = json.loads(e["extra"]) if e["extra"] else None
+            except ValueError:
+                p["nums"] = None
+        elif e["ev"] == "consult" and (e["extra"] or "").startswith("calc_"):
+            p["consult"] = True
+            p["kind"] = p["kind"] or e["extra"][5:]
+    people = {u: p for u, p in people.items() if p["kind"] in calc.STEPS}
+    if not people:
+        return [T.CALC_LIST_EMPTY]
+    lines = []
+    for n, (uid, p) in enumerate(sorted(people.items(), key=lambda x: -x[1]["at"])[:limit], 1):
+        u = db.user(uid) or {}
+        nick = u.get("username")
+        contact = f"@{esc(nick)}" if nick else f'<a href="tg://user?id={uid}">{T.ADMIN_WRITE_LINK}</a> (без ніка)'
+        a = p["nums"] or {}
+        if p["kind"] == "pension" and a:
+            nums = T.CALC_LIST_PENSION.format(age=a.get("age"), retire=a.get("retire"), m=calc.money(a.get("monthly", 0)))
+        elif p["kind"] == "kids" and a:
+            nums = T.CALC_LIST_KIDS.format(age=a.get("child_age"), target=a.get("target", 18), m=calc.money(a.get("monthly", 0)))
+        elif p["kind"] == "save" and a:
+            nums = T.CALC_LIST_SAVE.format(years=a.get("years"), m=calc.money(a.get("monthly", 0)))
+        else:
+            nums = ""
+        if p["consult"]:
+            status = T.CALC_LIST_CONSULT
+        elif p["done"]:
+            status = T.CALC_LIST_DONE
+        else:
+            st = state(uid)
+            step = int(st.split(":")[2]) + 1 if st.startswith(f"calc:{p['kind']}:") else 0
+            status = (T.CALC_LIST_STEP.format(step=step, total=len(calc.STEPS[p["kind"]])) if step
+                      else T.CALC_LIST_STOPPED)
+        day = datetime.fromtimestamp(p["at"], config.TZ).strftime("%d.%m")
+        lines.append(T.CALC_LIST_ITEM.format(n=n, name=esc(u.get("name") or uid), contact=contact,
+                                             title=T.CALC_LIST_TITLES[p["kind"]], nums=nums, status=status, day=day))
+    parts, cur = [], T.CALC_LIST_HEAD.format(days=days, total=len(people), shown=len(lines))
+    for line in lines:
+        if len(cur) + len(line) > 3500:
+            parts.append(cur)
+            cur = ""
+        cur += "\n\n" + line
+    parts.append(cur.strip())
+    return parts
 
 
 # ================== звіт власниці о 9:00 ==================
