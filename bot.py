@@ -358,10 +358,13 @@ async def calc_answer(msg, context, uid, st):
     await calc_finish(msg, uid, kind)
 
 
-async def calc_finish(msg, uid, kind):
-    """Показує результат розрахунку з кнопкою запису (і з чату, і з мінізастосунку)."""
+async def calc_finish(msg, uid, kind, goal=0):
+    """Показує результат розрахунку з кнопкою запису (і з чату, і з мінізастосунку). goal: мета з мінізастосунку."""
     state(uid, "")
     text = calc.result(kind, uid)
+    if goal:
+        line = T.CALC_GOAL_PENSION if kind == "pension" else T.CALC_GOAL_SUM
+        text = line.format(goal=calc.money(goal)) + "\n\n" + text
     db.kv(f"calc_res:{uid}", text)  # Олена побачить цей розрахунок, якщо людина запишеться
     db.log_ev(uid, f"calc_{kind}", json.dumps(calc.answers(uid)))  # цифри людини для «🧮 Хто рахував»
     await msg.reply_text(text, parse_mode=HTML, reply_markup=kb([
@@ -502,9 +505,11 @@ async def on_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # 0) Цифри з мінізастосунку «Розрахунки»
     if msg.web_app_data:
-        kind = calc.from_webapp(uid, msg.web_app_data.data)
+        kind, action, goal = calc.from_webapp(uid, msg.web_app_data.data)
         if kind:
-            await calc_finish(msg, uid, kind)
+            await calc_finish(msg, uid, kind, goal)
+            if action == "consult":  # «📞 Записатися» в мінізастосунку: одразу записуємо
+                await ask_start(chat_id, context, uid, f"calc_{kind}")
         else:
             await msg.reply_text(T.CALC_NOT_NUMBER, reply_markup=kb_bottom(uid))
         return
@@ -901,6 +906,10 @@ async def post_init(app: Application):
     if launch:
         launch.setup()
     await app.bot.set_my_commands([BotCommand("start", "Почати"), BotCommand("menu", "Меню")])
+    try:
+        webserver.BOT_USERNAME = (await app.bot.get_me()).username or webserver.BOT_USERNAME  # для «Надіслати близьким»
+    except Exception as e:
+        log.warning("get_me: %s", e)
     for a in config.ADMIN_IDS:
         try:
             await app.bot.set_my_commands([BotCommand("start", "Почати"), BotCommand("menu", "Меню"),

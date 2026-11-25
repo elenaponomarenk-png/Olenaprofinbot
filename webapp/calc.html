@@ -14,18 +14,23 @@
     --accent: var(--tg-theme-button-color, #1c1b1f);
     --accent-text: var(--tg-theme-button-text-color, #ffffff);
     --line: rgba(127, 127, 127, .22);
+    --good: #2e8b57;
   }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   body { margin: 0; font-family: -apple-system, system-ui, "Segoe UI", Roboto, sans-serif; background: var(--bg);
-         color: var(--text); padding-bottom: 96px; }
+         color: var(--text); padding-bottom: 150px; }
   .tabs { position: sticky; top: 0; z-index: 2; display: flex; background: var(--bg); border-bottom: 1px solid var(--line); }
   .tab { flex: 1; padding: 14px 4px; text-align: center; font-size: 16px; color: var(--hint); border: 0; background: none;
          font-weight: 600; border-bottom: 3px solid transparent; }
   .tab.on { color: var(--text); border-bottom-color: #c0392b; }
   .wrap { padding: 16px; max-width: 560px; margin: 0 auto; }
   h1 { font-size: 26px; margin: 4px 0 6px; }
-  .sub { color: var(--hint); margin: 0 0 16px; font-size: 15px; }
+  .sub { color: var(--hint); margin: 0 0 14px; font-size: 15px; }
   .card { background: var(--card); border-radius: 20px; padding: 16px; margin-bottom: 14px; box-shadow: 0 1px 2px rgba(0,0,0,.05); }
+  .mode { display: flex; gap: 8px; margin-bottom: 14px; }
+  .mode button { flex: 1; padding: 12px 8px; border-radius: 14px; border: 1.5px solid var(--line); background: var(--card);
+                 color: var(--text); font-size: 14px; font-weight: 600; }
+  .mode button.on { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
   .field + .field { border-top: 1px solid var(--line); margin-top: 14px; padding-top: 14px; }
   .row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
   .row > div:first-child { flex: 1; min-width: 0; }
@@ -40,19 +45,43 @@
   .pm { width: 44px; height: 44px; border-radius: 50%; border: 1.5px solid var(--line); background: none; color: var(--text);
         font-size: 24px; line-height: 1; flex: none; }
   input[type=range] { flex: 1; accent-color: var(--accent); height: 28px; }
-  .res { background: var(--card); border-radius: 20px; padding: 18px 16px; }
-  .res .big { font-size: 30px; font-weight: 800; margin: 4px 0 10px; }
-  .res .line { display: flex; justify-content: space-between; padding: 8px 0; border-top: 1px solid var(--line); font-size: 16px; }
-  .res .line b { white-space: nowrap; }
-  .note { color: var(--hint); font-size: 13px; margin-top: 12px; line-height: 1.4; }
-  .go { position: fixed; left: 16px; right: 16px; bottom: 16px; height: 56px; border: 0; border-radius: 18px;
-        background: var(--accent); color: var(--accent-text); font-size: 18px; font-weight: 700; }
-  .hide { display: none; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+  .chip { padding: 10px 16px; border-radius: 14px; border: 1.5px solid var(--line); background: none; color: var(--text);
+          font-size: 16px; font-weight: 600; }
+  .chip.on { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
+  .own { margin-top: 12px; }
+  .hero { background: #1f1d24; color: #fff; border-radius: 22px; padding: 18px 18px 16px; margin-bottom: 14px; }
+  .hero .t { font-size: 16px; opacity: .85; }
+  .hero .big { font-size: 38px; font-weight: 800; color: #8fdcaa; margin: 6px 0 4px; line-height: 1.1; }
+  .hero .big small { font-size: 18px; font-weight: 600; }
+  .hero .n { font-size: 14px; opacity: .75; }
+  .need { padding-bottom: 10px; }
+  .need .t { color: var(--hint); font-size: 15px; }
+  .need .big { font-size: 32px; font-weight: 800; margin: 4px 0 2px; }
+  .need .big small { font-size: 16px; font-weight: 600; color: var(--hint); }
+  .line { display: flex; justify-content: space-between; gap: 10px; padding: 10px 0; border-top: 1px solid var(--line); font-size: 16px; }
+  .line b { white-space: nowrap; }
+  .line .g { color: var(--good); }
+  .line .h { display: block; color: var(--hint); font-size: 13px; }
+  .steps h3, .share h3 { margin: 0 0 10px; font-size: 18px; }
+  .step { display: flex; gap: 12px; align-items: flex-start; padding: 6px 0; font-size: 16px; }
+  .step i { flex: none; width: 30px; height: 30px; border-radius: 50%; background: var(--bg); display: flex; align-items: center;
+            justify-content: center; font-style: normal; font-weight: 700; }
+  .share p { margin: 0 0 12px; color: var(--hint); font-size: 15px; }
+  .share button { width: 100%; padding: 14px; border-radius: 16px; border: 1.5px solid var(--line); background: none; color: var(--text);
+                  font-size: 17px; font-weight: 700; }
+  .note { color: var(--hint); font-size: 13px; line-height: 1.45; margin: 4px 2px 0; }
+  .bottom { position: fixed; left: 0; right: 0; bottom: 0; padding: 10px 16px 14px; background: var(--bg);
+            border-top: 1px solid var(--line); }
+  .go { width: 100%; height: 56px; border: 0; border-radius: 18px; background: var(--accent); color: var(--accent-text);
+        font-size: 18px; font-weight: 700; }
+  .save { width: 100%; margin-top: 6px; padding: 10px; border: 0; background: none; color: var(--text); font-size: 16px; font-weight: 700; }
+  .hide { display: none !important; }
 </style>
 </head>
 <body>
 <div class="tabs">
-  <button class="tab on" data-k="save">Накопичити</button>
+  <button class="tab" data-k="save">Накопичити</button>
   <button class="tab" data-k="pension">Пенсія</button>
   <button class="tab" data-k="kids">Дитині</button>
 </div>
@@ -60,18 +89,39 @@
 <div class="wrap">
   <h1 id="title"></h1>
   <p class="sub" id="sub"></p>
+  <div class="mode">
+    <button data-m="pay">Знаю, скільки відкладати</button>
+    <button data-m="goal">Знаю, скільки хочу</button>
+  </div>
   <div class="card" id="fields"></div>
-  <div class="res" id="res"></div>
-  <p class="note">Дохідність {{RATE}}% на рік, внесок щороку зростає на {{INDEX}}% (індексація)<br>
+  <div class="hero" id="hero"></div>
+  <div class="card" id="res"></div>
+  <div class="card steps">
+    <h3>Що буде після запису</h3>
+    <div class="step"><i>1</i><span>Олена зв'яжеться з вами в зручний час</span></div>
+    <div class="step"><i>2</i><span>Підбере внесок і строк саме під вашу ціль</span></div>
+    <div class="step"><i>3</i><span>Рішення за вами: консультація безкоштовна і ні до чого не зобов'язує</span></div>
+  </div>
+  <div class="card share">
+    <h3 id="shareTitle"></h3>
+    <p>Надішліть їм калькулятор. Ваших сум у повідомленні не буде</p>
+    <button id="share">📤 Надіслати близьким</button>
+  </div>
+  <p class="note">Дохідність {{RATE}}% на рік, внесок щороку зростає на {{INDEX}}% (індексація)<br><br>
     ❗ У розрахунку не врахований страховий захист життя та здоров'я<br><br>
     ❗ Розрахунок орієнтовний<br>Точно під вашу ситуацію порахуємо на безкоштовній консультації</p>
 </div>
-<button class="go" id="go">Записатися на консультацію</button>
+<div class="bottom">
+  <button class="go" id="go">📞 Записатися на консультацію</button>
+  <button class="save" id="saveBtn">💾 Зберегти розрахунок у боті</button>
+</div>
 
 <script>
 const RATE = {{RATE}}, INDEX = {{INDEX}}, PENSION_YEARS = {{PENSION_YEARS}};
+const BOT = "{{BOT}}";
 const tg = window.Telegram && window.Telegram.WebApp;
 if (tg) { tg.ready(); tg.expand(); }
+const YEAR = new Date().getFullYear();
 
 // Однакова формула з calc.py: внесок на початку місяця, щомісячна дохідність, внесок щороку +індексація
 function grow(monthly, years) {
@@ -83,108 +133,169 @@ function grow(monthly, years) {
   }
   return [paid, cap];
 }
+// Скільки відкладати на місяць, щоб зібрати capital (формула лінійна: удвічі більший внесок дає удвічі більше)
+function needMonthly(capital, years) {
+  const one = grow(1, years)[1];
+  return Math.min(10000000, Math.max(100, Math.ceil(capital / one / 10) * 10));
+}
 const money = x => Math.round(x).toLocaleString("uk-UA").replace(/ /g, " ");
+// «рік / роки / років»
+const yrs = n => { const a = n % 10, b = n % 100; return a === 1 && b !== 11 ? "рік" : a >= 2 && a <= 4 && (b < 12 || b > 14) ? "роки" : "років"; };
 
+const PAY = [["monthly", "Відкладаю на місяць", "", 500, 50000, 100, 1000, "грн"],
+             ["yearly", "Відкладаю на рік", "", 6000, 600000, 1200, 12000, "грн"]];
 const CALCS = {
   save: { title: "Скільки я накопичу", sub: "Кілька цифр, і побачите свій капітал",
-    fields: [["monthly", "Відкладаю на місяць", "", 500, 50000, 100, 1000, "грн"],
-             ["yearly", "Відкладаю на рік", "", 6000, 600000, 1200, 12000, "грн"],
-             ["years", "Скільки років", "від 1 до 40", 1, 40, 1, 10, "р."]] },
+    fields: [["years", "Скільки років", "від 1 до 40", 1, 40, 1, 10, "р."]],
+    goalTitle: "Хочу зібрати", goals: [[200000, "200 тис."], [500000, "500 тис."], [1000000, "1 млн"]], goalDef: 500000,
+    share: "Хто ще думає про накопичення?", shareText: "Подивись, скільки можна накопичити за хвилину 👇" },
   pension: { title: "Яка буде моя пенсія", sub: "Скільки накопичите до пенсії і на скільки вистачить",
     fields: [["age", "Вік зараз", "18-65 років", 18, 65, 1, 35, "р."],
-             ["retire", "Вік виходу на пенсію", "коли хочете отримувати пенсію", 45, 75, 1, 60, "р."],
-             ["monthly", "Відкладаю на місяць", "", 500, 50000, 100, 1000, "грн"],
-             ["yearly", "Відкладаю на рік", "", 6000, 600000, 1200, 12000, "грн"]] },
+             ["retire", "Вік виходу на пенсію", "коли хочете отримувати пенсію", 45, 75, 1, 60, "р."]],
+    goalTitle: "Хочу пенсію на місяць (на 10 років)", goals: [[10000, "10 тис."], [15000, "15 тис."], [20000, "20 тис."]], goalDef: 15000,
+    share: "Хто ще думає про свою пенсію?", shareText: "Подивись, яка може бути твоя пенсія, за хвилину 👇" },
   kids: { title: "Капітал для дитини", sub: "Скільки отримає дитина у 18-27 років",
     fields: [["child_age", "Вік дитини зараз", "0-17 років", 0, 17, 1, 0, "р."],
-             ["target", "Отримати гроші у віці", "від 18 до 27 років", 18, 27, 1, 18, "р."],
-             ["monthly", "Відкладаю на місяць", "", 500, 50000, 100, 1000, "грн"],
-             ["yearly", "Відкладаю на рік", "", 6000, 600000, 1200, 12000, "грн"]] },
+             ["target", "Отримати гроші у віці", "від 18 до 27 років", 18, 27, 1, 18, "р."]],
+    goalTitle: "Хочу зібрати", goals: [[200000, "200 тис."], [500000, "500 тис."], [1000000, "1 млн"]], goalDef: 1000000,
+    share: "Хто ще дбає про майбутнє дитини?", shareText: "Подивись, скільки можна накопичити для дитини за хвилину 👇" },
 };
 
 let kind = new URLSearchParams(location.search).get("tab");
 if (!CALCS[kind]) kind = "save";
-document.querySelectorAll(".tab").forEach(x => x.classList.toggle("on", x.dataset.k === kind));
-const vals = {};
-const shows = {};  // показати нове число в полі без перерахунку (для пов'язаних «на місяць» і «на рік»)
+let mode = "pay";
+const vals = {}, goal = {};
+let shows = {};
+
+function slider([key, label, hint, lo, hi, step, def, unit]) {
+  if (vals[kind + key] === undefined) vals[kind + key] = key === "yearly" ? vals[kind + "monthly"] * 12 : def;
+  const f = document.createElement("div");
+  f.className = "field";
+  f.innerHTML = `<div class="row"><div><div class="label">${label}</div>${hint ? `<div class="hint">${hint}</div>` : ""}</div>
+    <label class="val"><input type="text" inputmode="numeric" enterkeyhint="done" value="${money(vals[kind + key])}"><span>${unit}</span></label></div>
+    <div class="slide"><button class="pm" data-d="-1">−</button>
+    <input type="range" min="${lo}" max="${hi}" step="${step}" value="${vals[kind + key]}">
+    <button class="pm" data-d="1">+</button></div>`;
+  const num = f.querySelector(".val input"), rng = f.querySelector("input[type=range]");
+  shows[key] = v => { vals[kind + key] = v; num.value = money(v); rng.value = v; };
+  const set = v => {
+    v = Math.max(lo, Math.min(hi, Math.round(v)));
+    shows[key](v);
+    if (key === "monthly" && shows.yearly) shows.yearly(v * 12);
+    if (key === "yearly" && shows.monthly) shows.monthly(Math.round(v / 12));
+    if (key === "child_age" && shows.target && vals[kind + "target"] <= v) shows.target(Math.min(27, v + 1));
+    if (key === "age" && shows.retire && vals[kind + "retire"] <= v) shows.retire(v + 1);
+    calcNow();
+  };
+  rng.oninput = () => set(+rng.value);
+  // Ручне введення: віконце очищається (старе число видно підказкою), результат рахується одразу
+  const typed = () => +String(num.value).replace(/\D/g, "");
+  num.onfocus = () => { num.placeholder = money(vals[kind + key]); num.value = ""; goDone(true); };
+  num.oninput = () => {
+    const v = typed();
+    if (v >= lo && v <= hi) {
+      vals[kind + key] = v; rng.value = v;
+      if (key === "monthly" && shows.yearly) shows.yearly(v * 12);
+      if (key === "yearly" && shows.monthly) shows.monthly(Math.round(v / 12));
+      calcNow();
+    }
+  };
+  num.onblur = () => { set(typed() || vals[kind + key]); goDone(false); };
+  num.onkeydown = e => { if (e.key === "Enter") num.blur(); };
+  f.querySelectorAll(".pm").forEach(b => b.onclick = () => {
+    set(vals[kind + key] + step * +b.dataset.d);
+    if (tg && tg.HapticFeedback) tg.HapticFeedback.selectionChanged();
+  });
+  return f;
+}
+
+function goalField() {
+  const c = CALCS[kind];
+  if (goal[kind] === undefined) goal[kind] = c.goalDef;
+  const f = document.createElement("div");
+  f.className = "field";
+  const isOwn = !c.goals.some(([v]) => v === goal[kind]);
+  f.innerHTML = `<div class="label">${c.goalTitle}: <span class="gv">${money(goal[kind])}</span> грн</div>
+    <div class="chips">${c.goals.map(([v, t]) => `<button class="chip${v === goal[kind] ? " on" : ""}" data-v="${v}">${t}</button>`).join("")}
+    <button class="chip${isOwn ? " on" : ""}" data-v="own">своя сума</button></div>
+    <label class="val own${isOwn ? "" : " hide"}"><input type="text" inputmode="numeric" enterkeyhint="done" value="${money(goal[kind])}"><span>грн</span></label>`;
+  const own = f.querySelector(".own"), inp = own.querySelector("input"), gv = f.querySelector(".gv");
+  f.querySelectorAll(".chip").forEach(b => b.onclick = () => {
+    f.querySelectorAll(".chip").forEach(x => x.classList.toggle("on", x === b));
+    if (b.dataset.v === "own") { own.classList.remove("hide"); inp.focus(); return; }
+    own.classList.add("hide");
+    goal[kind] = +b.dataset.v; gv.textContent = money(goal[kind]); calcNow();
+  });
+  inp.onfocus = () => { inp.placeholder = money(goal[kind]); inp.value = ""; goDone(true); };
+  inp.oninput = () => {
+    const v = +String(inp.value).replace(/\D/g, "");
+    if (v >= 1000) { goal[kind] = v; gv.textContent = money(v); calcNow(); }
+  };
+  inp.onblur = () => { inp.value = money(goal[kind]); goDone(false); };
+  inp.onkeydown = e => { if (e.key === "Enter") inp.blur(); };
+  return f;
+}
 
 function render() {
   const c = CALCS[kind];
+  document.querySelectorAll(".tab").forEach(x => x.classList.toggle("on", x.dataset.k === kind));
+  document.querySelectorAll(".mode button").forEach(x => x.classList.toggle("on", x.dataset.m === mode));
   document.getElementById("title").textContent = c.title;
   document.getElementById("sub").textContent = c.sub;
+  document.getElementById("shareTitle").textContent = c.share;
   const box = document.getElementById("fields");
-  box.innerHTML = "";
-  c.fields.forEach(([key, label, hint, lo, hi, step, def, unit]) => {
-    if (vals[kind + key] === undefined) vals[kind + key] = key === "yearly" ? vals[kind + "monthly"] * 12 : def;
-    const f = document.createElement("div");
-    f.className = "field";
-    f.innerHTML = `<div class="row"><div><div class="label">${label}</div>${hint ? `<div class="hint">${hint}</div>` : ""}</div>
-      <label class="val"><input type="text" inputmode="numeric" enterkeyhint="done" value="${money(vals[kind + key])}"><span>${unit}</span></label></div>
-      <div class="slide"><button class="pm" data-d="-1">−</button>
-      <input type="range" min="${lo}" max="${hi}" step="${step}" value="${vals[kind + key]}">
-      <button class="pm" data-d="1">+</button></div>`;
-    const num = f.querySelector(".val input"), rng = f.querySelector("input[type=range]");
-    shows[key] = v => { vals[kind + key] = v; num.value = money(v); rng.value = v; };
-    const set = v => {
-      v = Math.max(lo, Math.min(hi, Math.round(v)));
-      shows[key](v);
-      if (key === "monthly" && shows.yearly) shows.yearly(v * 12);       // на місяць → на рік
-      if (key === "yearly" && shows.monthly) shows.monthly(Math.round(v / 12));  // на рік → на місяць
-      if (key === "child_age" && shows.target && vals[kind + "target"] <= v) shows.target(Math.min(27, v + 1));
-      if (key === "age" && shows.retire && vals[kind + "retire"] <= v) shows.retire(v + 1);
-      calcNow();
-    };
-    rng.oninput = () => set(+rng.value);
-    // Ручне введення: торкнулись віконця, воно очищається (старе число видно світлою підказкою), пишете своє.
-    // Поки людина пише, результат рахується одразу; коли закінчила, число стає в межі і з пробілами.
-    const typed = () => +String(num.value).replace(/\D/g, "");
-    num.onfocus = () => { num.placeholder = money(vals[kind + key]); num.value = ""; goDone(true); };
-    num.oninput = () => {
-      const v = typed();
-      if (v >= lo && v <= hi) {
-        vals[kind + key] = v; rng.value = v;
-        if (key === "monthly" && shows.yearly) shows.yearly(v * 12);
-        if (key === "yearly" && shows.monthly) shows.monthly(Math.round(v / 12));
-        calcNow();
-      }
-    };
-    num.onblur = () => { set(typed() || vals[kind + key]); goDone(false); };
-    num.onkeydown = e => { if (e.key === "Enter") num.blur(); };
-    f.querySelectorAll(".pm").forEach(b => b.onclick = () => {
-      set(vals[kind + key] + step * +b.dataset.d);
-      if (tg && tg.HapticFeedback) tg.HapticFeedback.selectionChanged();
-    });
-    box.appendChild(f);
-  });
+  box.innerHTML = ""; shows = {};
+  c.fields.forEach(fl => box.appendChild(slider(fl)));
+  if (mode === "pay") PAY.forEach(fl => box.appendChild(slider(fl)));
+  else box.appendChild(goalField());
   calcNow();
 }
+
+function years(o) { return kind === "save" ? o.years : kind === "pension" ? o.retire - o.age : o.target - o.child_age; }
 
 function current() {
   const o = { kind };
   CALCS[kind].fields.forEach(([key]) => o[key] = vals[kind + key]);
   if (kind === "pension" && o.retire <= o.age) o.retire = o.age + 1;
   if (kind === "kids" && o.target <= o.child_age) o.target = Math.min(27, o.child_age + 1);
+  if (mode === "pay") o.monthly = vals[kind + "monthly"] || 1000;
+  else {
+    const capital = kind === "pension" ? goal[kind] * 12 * PENSION_YEARS[0] : goal[kind];
+    o.monthly = needMonthly(capital, years(o));
+    o.goal = goal[kind];
+  }
   return o;
 }
 
 function calcNow() {
-  const o = current(), res = document.getElementById("res");
-  let years = kind === "save" ? o.years : kind === "pension" ? o.retire - o.age : o.target - o.child_age;
-  const [paid, cap] = grow(o.monthly, years);
-  let html = `<div class="hint">${kind === "kids" ? `Коли дитині виповниться ${o.target}, буде` : kind === "pension" ? "До пенсії накопичиться" : "У вас буде"}</div>
-    <div class="big">${money(cap)} грн</div>
-    <div class="line"><span>Ви внесете за ${years} р.</span><b>${money(paid)} грн</b></div>`;
-  if (kind === "pension") {
-    if (o.retire <= o.age) html += `<div class="line"><span>Вік пенсії має бути більшим за ваш вік</span></div>`;
-    PENSION_YEARS.forEach(n => html += `<div class="line"><span>Пенсія на ${n} років</span><b>${money(cap / (12 * n))} грн/міс</b></div>`);
-  }
+  const o = current(), n = years(o), [paid, cap] = grow(o.monthly, n);
+  const hero = document.getElementById("hero"), res = document.getElementById("res");
+  let head, big;
+  if (kind === "kids") { head = `У ${o.target} ${yrs(o.target)} (${YEAR + n} рік) дитина отримає`; big = `≈ ${money(cap)} <small>грн</small>`; }
+  else if (kind === "pension") { head = `З ${o.retire} ${yrs(o.retire)} (${YEAR + n} рік) пенсія протягом ${PENSION_YEARS[0]} років`;
+    big = `≈ ${money(cap / (12 * PENSION_YEARS[0]))} <small>грн на місяць</small>`; }
+  else { head = `Через ${n} ${yrs(n)} (${YEAR + n} рік) у вас буде`; big = `≈ ${money(cap)} <small>грн</small>`; }
+  hero.innerHTML = `<div class="t">${head}</div><div class="big">${big}</div><div class="n">Прогноз, дохід не гарантований</div>`;
+  let html = "";
+  if (mode === "goal") html += `<div class="need"><div class="t">Для цього відкладайте</div>
+    <div class="big">≈ ${money(o.monthly)} <small>грн на місяць</small></div>
+    <div class="t">або ≈ ${money(o.monthly * 12)} грн на рік (перший рік, далі +${INDEX}% щороку)</div></div>`;
+  html += `<div class="line"${mode === "pay" ? ' style="border-top:0"' : ""}><span>Програма</span><b>${n} ${yrs(n)}</b></div>
+    <div class="line"><span>Внесете</span><b>${money(paid)} грн</b></div>
+    <div class="line"><span>Інвестиційний дохід<span class="h">прогноз, не гарантований</span></span><b class="g">+ ≈ ${money(cap - paid)} грн</b></div>
+    <div class="line"><span>Разом</span><b class="g">≈ ${money(cap)} грн</b></div>`;
+  if (kind === "pension") PENSION_YEARS.forEach(y => html += `<div class="line"><span>Пенсія на ${y} років</span><b>${money(cap / (12 * y))} грн/міс</b></div>`);
   res.innerHTML = html;
 }
 
-document.querySelectorAll(".tab").forEach(t => t.onclick = () => {
-  document.querySelectorAll(".tab").forEach(x => x.classList.toggle("on", x === t));
-  kind = t.dataset.k; render(); window.scrollTo(0, 0);
-});
+document.querySelectorAll(".tab").forEach(t => t.onclick = () => { kind = t.dataset.k; render(); window.scrollTo(0, 0); });
+document.querySelectorAll(".mode button").forEach(b => b.onclick = () => { mode = b.dataset.m; render(); });
+
+document.getElementById("share").onclick = () => {
+  const link = `https://t.me/${BOT}?start=calc_${kind}`;
+  const url = `https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent(CALCS[kind].shareText)}`;
+  if (tg && tg.openTelegramLink) tg.openTelegramLink(url); else window.open(url, "_blank");
+};
 
 // Поки людина вписує число, велика кнопка стає «✓ Готово» і ховає клавіатуру
 const go = document.getElementById("go"), GO_TEXT = go.textContent;
@@ -192,8 +303,11 @@ let doneMode = false, doneTimer = null;
 function goDone(on) {
   clearTimeout(doneTimer);
   if (on) { doneMode = true; go.textContent = "✓ Готово"; return; }
-  // трохи чекаємо: натискання на «Готово» спершу забирає фокус з віконця, а вже потім спрацьовує кнопка
   doneTimer = setTimeout(() => { doneMode = false; go.textContent = GO_TEXT; }, 400);
+}
+function send(action) {
+  const o = current(); o.action = action;
+  if (tg && tg.sendData) tg.sendData(JSON.stringify(o)); // агент сам перевірить цифри і перерахує
 }
 go.onclick = () => {
   if (doneMode) {
@@ -201,9 +315,9 @@ go.onclick = () => {
     clearTimeout(doneTimer); doneMode = false; go.textContent = GO_TEXT;
     return;
   }
-  const data = JSON.stringify(current());
-  if (tg && tg.sendData) tg.sendData(data); // агент отримає цифри, сам перерахує і запропонує запис
+  send("consult");
 };
+document.getElementById("saveBtn").onclick = () => send("save");
 
 render();
 </script>
