@@ -151,6 +151,7 @@ Claude кладе з нього файли агента в папку, збер�
 - Посилання:
   - Instagram: https://www.instagram.com/ellenkaponomarenka
   - Особистий Telegram для зв'язку: https://t.me/ellenka1802
+  - Сайт: https://olenaponomarenko.netlify.app (є в «Контактах» з версії 3.9)
   - Канал послуг «Олена Пономаренко / Мої послуги»: https://t.me/programy_poslugy
   - Канал «Олена про фінансовий інтелект і страхування»: https://t.me/fin_intellect
     (довідкова та законодавча інформація, виплати, поради та гумор по моїй серйозній темі)

@@ -9,9 +9,8 @@ OWNER_NAME = "Олена"           # як вас звати (називний: 
 OWNER_ROD = "Олени"            # родовий відмінок (кого? Олени): «відповідь від Олени»
 
 # ---------- Версія: змінюйте після кожного оновлення, власниця отримає «Агента оновлено» ----------
-VERSION = "3.8"
-NOTES = ["У розрахунках замість «дохід не гарантований» тепер просто «Прогноз»",
-         "Суми яскраво-оранжеві, як на вашому сайті"]
+VERSION = "3.9"
+NOTES = ["У «📞 Контакти» додано ваш сайт olenaponomarenko.netlify.app"]
 
 # ---------- Фото, відео, файли ----------
 # Файли лежать у папці images/ (Claude кладе їх туди сам, коли ви прикріплюєте фото в чат).
@@ -196,6 +195,7 @@ CABINET_EMPTY_EXTRA = "Подивіться програми, які можу з
 
 CONTACTS = ("<b>Контакти</b>\n\n"
             "Написати мені особисто: <a href=\"https://t.me/ellenka1802\">@ellenka1802</a>\n"
+            "Мій сайт: <a href=\"https://olenaponomarenko.netlify.app\">olenaponomarenko.netlify.app</a>\n"
             "Instagram: <a href=\"https://www.instagram.com/ellenkaponomarenka\">@ellenkaponomarenka</a>\n"
             "Канал «Мої послуги»: <a href=\"https://t.me/programy_poslugy\">@programy_poslugy</a>\n"
             "Канал «Олена про фінансовий інтелект і страхування»: <a href=\"https://t.me/fin_intellect\">@fin_intellect</a>\n"
