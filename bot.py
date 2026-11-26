@@ -51,6 +51,21 @@ def menu_buttons():
     return set(b)
 
 
+def advent_label():
+    """Напис на кнопці календаря: до 1 грудня скільки днів лишилось, у грудні номер віконця (за Києвом).
+    Оновлюється щоразу, коли агент надсилає нижнє меню."""
+    today = datetime.now(config.TZ).date()
+    start = datetime(T.ADVENT_YEAR, 12, 1).date()
+    left = (start - today).days
+    if left > 0:
+        a, b = left % 10, left % 100
+        word = "день" if a == 1 and b != 11 else "дні" if 2 <= a <= 4 and not 12 <= b <= 14 else "днів"
+        return T.BTN_ADVENT_LEFT.format(n=left, word=word)
+    if today.year == T.ADVENT_YEAR and today.month == 12:
+        return T.BTN_ADVENT_DAY.format(n=today.day)
+    return T.BTN_ADVENT
+
+
 def kb_bottom(uid):
     """Нижнє меню: широка головна кнопка зверху, далі по 2 в ряд. Власниці ще «Керування»."""
     # «Розрахунки»: якщо є адреса мінізастосунку, кнопка одразу відкриває його, інакше розрахунки в чаті
@@ -58,7 +73,8 @@ def kb_bottom(uid):
         if not config.WEBAPP_URL:
             return text
         return KeyboardButton(text, web_app=WebAppInfo(f"{config.WEBAPP_URL}?tab={tab}"))
-    advent = KeyboardButton(T.BTN_ADVENT, web_app=WebAppInfo(config.ADVENT_URL)) if config.ADVENT_URL else T.BTN_ADVENT
+    label = advent_label()
+    advent = KeyboardButton(label, web_app=WebAppInfo(config.ADVENT_URL)) if config.ADVENT_URL else label
     rows = [[advent], [main_button()],
             [calc_btn(T.BTN_CALC_PENSION, "pension"), calc_btn(T.BTN_CALC_KIDS, "kids")],
             [calc_btn(T.BTN_CALC_SAVE, "save")],
@@ -632,7 +648,7 @@ async def on_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     # 1) Кнопки нижнього меню завжди першими: людина не «застрягає» в питанні чи розсилці
-    if text in menu_buttons():
+    if text in menu_buttons() or text.startswith(T.BTN_ADVENT[:2]):
         state(uid, "")
         if not await gate_ok(context.bot, chat_id, uid):
             return
@@ -642,7 +658,7 @@ async def on_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await show_about(chat_id, context, uid)
         elif text == T.BTN_PRODUCTS:
             await show_products(chat_id, context, uid=uid)
-        elif text == T.BTN_ADVENT:  # сюди потрапляє, тільки якщо мінізастосунку ще немає
+        elif text.startswith(T.BTN_ADVENT[:2]):  # сюди потрапляє, тільки якщо мінізастосунку ще немає
             db.log_ev(uid, "advent")
             await msg.reply_text(T.ADVENT_NO_APP, reply_markup=kb_bottom(uid))
         elif text == T.BTN_CALC:
