@@ -11,6 +11,7 @@ TZ = ZoneInfo(os.environ.get("TZ_NAME", "Europe/Kyiv"))
 PORT = int(os.environ.get("PORT", "8080") or 8080)
 _DOMAIN = os.environ.get("RAILWAY_PUBLIC_DOMAIN", "").strip()
 WEBAPP_URL = os.environ.get("WEBAPP_URL", "").strip() or (f"https://{_DOMAIN}/calc" if _DOMAIN else "")
+ADVENT_URL = (WEBAPP_URL.rsplit("/", 1)[0] + "/advent") if WEBAPP_URL else ""  # адвент-календар на тій самій адресі
 
 
 def is_admin(uid):
