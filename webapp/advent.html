@@ -215,7 +215,12 @@ return `<button class="${cls}" data-n="${n}" aria-label="${n} грудня${lk?'
 const render=()=>{grid.innerHTML=Array.from({length:30},(_,i)=>cell(i+1)).join('');last.innerHTML=cell(31);last.firstChild.style.width='100%'};
 render();
 const st=document.getElementById('status');
-st.textContent=preview?'Режим перегляду: відкриті всі віконця':openUpTo===0?'Перше віконце відкриється 1 грудня - збережіть цю сторінку':!todayN?'Усі 31 віконце відкриті - перечитуйте будь-коли':'Сьогодні '+todayN+' грудня - відкрито віконець: '+openUpTo+' з 31';
+// Скільки днів лишилось до 1 грудня 2026 (за Києвом)
+function leftText(){const n=Math.round((Date.UTC(2026,11,1)-Date.UTC(t.y,t.m-1,t.d))/864e5);
+if(n<=0)return 'Перше віконце відкриється 1 грудня';
+const a=n%10,b=n%100,w=a===1&&b!==11?'день':a>=2&&a<=4&&(b<12||b>14)?'дні':'днів';
+return (n===1?'Лишився ':'Лишилось ')+n+' '+w+' до відкриття календаря 🎄 Перше віконце відкриється 1 грудня'}
+st.textContent=preview?'Режим перегляду: відкриті всі віконця':openUpTo===0?leftText():!todayN?'Усі 31 віконце відкриті - перечитуйте будь-коли':'Сьогодні '+todayN+' грудня - відкрито віконець: '+openUpTo+' з 31';
 const open=n=>{const x=D[n-1];document.getElementById('dn').textContent=n;document.getElementById('dk').textContent=n+' грудня · '+K[x[0]];
 let h=x[0]==='myth'?`<h3 id="dt">Міф: ${esc(x[1])}</h3><p class="truth"><b>Правда:</b> ${esc(x[2])}</p>`:`<h3 id="dt">${esc(x[1])}</h3><p>${esc(x[2])}</p>`;
 const b=x[3]||['Безкоштовна консультація',DM];
