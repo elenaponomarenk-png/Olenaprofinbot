@@ -46,7 +46,7 @@ def main_button():
 
 
 def menu_buttons():
-    b = [main_button(), T.BTN_MAIN, T.BTN_PRODUCTS, T.BTN_CALC, T.BTN_CALC_PENSION, T.BTN_CALC_KIDS, T.BTN_CALC_SAVE,
+    b = [main_button(), T.BTN_ADVENT, T.BTN_MAIN, T.BTN_PRODUCTS, T.BTN_CALC, T.BTN_CALC_PENSION, T.BTN_CALC_KIDS, T.BTN_CALC_SAVE,
          T.BTN_ASK, T.BTN_CABINET, T.BTN_CONTACTS, T.BTN_ADMIN]
     return set(b)
 
@@ -58,7 +58,8 @@ def kb_bottom(uid):
         if not config.WEBAPP_URL:
             return text
         return KeyboardButton(text, web_app=WebAppInfo(f"{config.WEBAPP_URL}?tab={tab}"))
-    rows = [[main_button()],
+    advent = KeyboardButton(T.BTN_ADVENT, web_app=WebAppInfo(config.ADVENT_URL)) if config.ADVENT_URL else T.BTN_ADVENT
+    rows = [[advent], [main_button()],
             [calc_btn(T.BTN_CALC_PENSION, "pension"), calc_btn(T.BTN_CALC_KIDS, "kids")],
             [calc_btn(T.BTN_CALC_SAVE, "save")],
             [T.BTN_PRODUCTS, T.BTN_ASK], [T.BTN_CABINET, T.BTN_CONTACTS]]
@@ -641,6 +642,9 @@ async def on_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await show_about(chat_id, context, uid)
         elif text == T.BTN_PRODUCTS:
             await show_products(chat_id, context, uid=uid)
+        elif text == T.BTN_ADVENT:  # сюди потрапляє, тільки якщо мінізастосунку ще немає
+            db.log_ev(uid, "advent")
+            await msg.reply_text(T.ADVENT_NO_APP, reply_markup=kb_bottom(uid))
         elif text == T.BTN_CALC:
             await show_calc_menu(chat_id, context, uid)
         elif text in (T.BTN_CALC_PENSION, T.BTN_CALC_KIDS, T.BTN_CALC_SAVE):  # якщо мінізастосунку ще немає

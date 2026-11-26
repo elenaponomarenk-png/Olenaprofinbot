@@ -11,6 +11,7 @@ import texts as T
 log = logging.getLogger("webapp")
 BOT_USERNAME = "Olenaprofinancebot"  # агент сам уточнює при запуску
 PAGE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "webapp", "calc.html")
+ADVENT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "webapp", "advent.html")
 
 
 def page():
@@ -22,8 +23,12 @@ def page():
 
 class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
-        if self.path.split("?")[0] in ("/calc", "/calc/"):
+        path = self.path.split("?")[0].split("#")[0]
+        if path in ("/calc", "/calc/"):
             body, ctype = page().encode("utf-8"), "text/html; charset=utf-8"
+        elif path in ("/advent", "/advent/"):  # адвент-календар
+            with open(ADVENT, "rb") as f:
+                body, ctype = f.read(), "text/html; charset=utf-8"
         else:
             body, ctype = b"ok", "text/plain; charset=utf-8"
         self.send_response(200)
