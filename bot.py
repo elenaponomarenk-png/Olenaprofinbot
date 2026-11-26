@@ -556,6 +556,12 @@ async def on_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     db.touch_user(uid, u.full_name, u.username or "")
     text = msg.text or ""
 
+    # Команда, вставлена як звичайний текст (наприклад, скопійована з повідомлення): виконуємо її все одно
+    cmd = text.strip().split()[0].lower().split("@")[0] if text.strip().startswith("/") else ""
+    if cmd in ("/dzherela", "/myid", "/menu"):
+        await {"/dzherela": dzherela, "/myid": myid, "/menu": menu_cmd}[cmd](update, context)
+        return
+
     # 0) Цифри з мінізастосунку «Розрахунки»
     if msg.web_app_data:
         kind, action, goal = calc.from_webapp(uid, msg.web_app_data.data)
