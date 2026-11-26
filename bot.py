@@ -66,10 +66,23 @@ def kb_bottom(uid):
     return ReplyKeyboardMarkup(rows, resize_keyboard=True, is_persistent=True)
 
 
+def kb_btn(t, d):
+    """Кнопка під повідомленням: https:// посилання, app:вкладка (мінізастосунок розрахунків) або callback."""
+    if d.startswith("http"):
+        return InlineKeyboardButton(t, url=d)
+    if d.startswith("app:"):
+        if config.WEBAPP_URL:
+            return InlineKeyboardButton(t, web_app=WebAppInfo(f"{config.WEBAPP_URL}?tab={d[4:]}"))
+        return InlineKeyboardButton(t, callback_data=f"calc:{d[4:]}")  # без адреси: розрахунок у чаті
+    return InlineKeyboardButton(t, callback_data=d)
+
+
 def kb(rows):
-    """rows: [[("Текст", "callback або https://посилання"), ...], ...]"""
-    return InlineKeyboardMarkup([[InlineKeyboardButton(t, url=d) if d.startswith("http") else
-                                  InlineKeyboardButton(t, callback_data=d) for t, d in r] for r in rows if r])
+    """rows: [[("Текст", "callback, app:вкладка або https://посилання"), ...], ...]"""
+    return InlineKeyboardMarkup([[kb_btn(t, d) for t, d in r] for r in rows if r])
+
+
+SRC_OK = re.compile(r"^[A-Za-z0-9_-]{1,64}$")  # слово після ?start=: латиниця, цифри, «_», «-», до 64 знаків
 
 
 def kb_nav(back=None):
@@ -169,11 +182,16 @@ async def gate_ok(bot, chat_id, uid, src=None, is_new=False):
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     u = update.effective_user
     chat_id = update.effective_chat.id
-    src = (context.args[0] if context.args else "")[:40]
+    src = context.args[0] if context.args else ""
+    src = src if SRC_OK.match(src) else ""
     is_new = db.touch_user(u.id, u.full_name, u.username or "", src)
     state(u.id, "")
-    db.log_ev(u.id, "start", src)
-    if is_new:
+    db.log_ev(u.id, "start", src)  # джерело: хто, яке слово, коли (для /dzherela і звіту)
+    if src in T.DOORS:  # «двері»: своє привітання замість загального (в after_start)
+        if is_new and not config.is_admin(u.id):
+            total, _, _ = db.stats()
+            await notify_admins(context.bot, T.ADMIN_NEW_USER.format(who=who(u), src=esc(src), total=total))
+    elif is_new:
         await send(context.bot, chat_id, T.WELCOME.format(name=esc(u.first_name), owner=T.OWNER_ROD),
                    kb_bottom(u.id), T.PHOTOS.get("welcome"))
         total, _, _ = db.stats()
@@ -189,6 +207,9 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def after_start(context, chat_id, uid, src, is_new):
     """Що робити після старту (і після підписки на канал): подарунок новим і розділ за міткою ?start=..."""
+    if src in T.DOORS:
+        await show_door(context, chat_id, uid, src, is_new)
+        return
     if (is_new or src == "gift") and T.GIFT_FILE:
         await send_gift(context.bot, chat_id, uid)
     elif (is_new or src == "gift") and T.GIFT_CALC:
@@ -209,6 +230,38 @@ async def after_start(context, chat_id, uid, src, is_new):
         await show_calc_menu(chat_id, context, uid)
     elif src.startswith("calc_") and src[5:] in calc.STEPS:
         await calc_start(chat_id, context, uid, src[5:])
+
+
+async def show_door(context, chat_id, uid, word, is_new):
+    """Окреме привітання для посилання ?start=СЛОВО: текст (новим з фото) і 1-2 кнопки, потім нижнє меню."""
+    text, rows = T.DOORS[word]
+    u = db.user(uid) or {}
+    name = esc((u.get("name") or "").split(" ")[0])
+    db.log_ev(uid, "door", word)
+    await send(context.bot, chat_id, text.format(name=name), kb(rows), T.PHOTOS.get("welcome") if is_new else "")
+    await context.bot.send_message(chat_id, T.DOOR_MENU, reply_markup=kb_bottom(uid))
+
+
+async def dzherela(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """/dzherela (тільки власниці): скільки людей прийшло з кожного слова за сьогодні, 7 днів і всього."""
+    if not config.is_admin(update.effective_user.id):
+        return
+    now = datetime.now(config.TZ)
+    today = int(now.replace(hour=0, minute=0, second=0, microsecond=0).timestamp())
+    week = int((now - timedelta(days=7)).timestamp())
+    with db.conn() as c:
+        rows = [dict(r) for r in c.execute("SELECT user_id, extra, at FROM events WHERE ev='start'").fetchall()]
+    rows = [r for r in rows if not config.is_admin(r["user_id"])]
+
+    def block(since):
+        people = {}
+        for r in rows:
+            if r["at"] >= since:
+                people.setdefault(r["extra"] or "напряму", set()).add(r["user_id"])
+        top = sorted(people.items(), key=lambda x: -len(x[1]))
+        return "\n".join(f"• {esc(k)}: {len(v)}" for k, v in top) or T.SOURCES_NONE
+
+    await update.message.reply_text(T.SOURCES.format(today=block(today), week=block(week), all=block(0)), parse_mode=HTML)
 
 
 async def send_gift(bot, chat_id, uid):
@@ -913,7 +966,8 @@ async def post_init(app: Application):
     for a in config.ADMIN_IDS:
         try:
             await app.bot.set_my_commands([BotCommand("start", "Почати"), BotCommand("menu", "Меню"),
-                                           BotCommand("myid", "Мій Telegram ID")], scope=BotCommandScopeChat(a))
+                                           BotCommand("myid", "Мій Telegram ID"),
+                                           BotCommand("dzherela", "Звідки прийшли люди")], scope=BotCommandScopeChat(a))
         except Exception as e:
             log.warning("admin commands %s: %s", a, e)
     # «Агента оновлено»: один раз на кожну нову версію з texts.VERSION
@@ -929,6 +983,7 @@ def main():
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("menu", menu_cmd))
     app.add_handler(CommandHandler("myid", myid))
+    app.add_handler(CommandHandler("dzherela", dzherela))
     app.add_handler(CallbackQueryHandler(on_callback))
     if launch:
         launch.add_handlers(app)  # /grupa і задачі продажів за розкладом
