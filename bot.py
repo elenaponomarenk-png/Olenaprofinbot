@@ -20,6 +20,7 @@ from telegram.ext import (Application, ApplicationBuilder, CallbackQueryHandler,
                           MessageHandler, filters)
 
 import calc
+import kviz
 import config
 import db
 import texts as T
@@ -212,7 +213,7 @@ async def after_start(context, chat_id, uid, src, is_new):
         return
     if (is_new or src == "gift") and T.GIFT_FILE:
         await send_gift(context.bot, chat_id, uid)
-    elif (is_new or src == "gift") and T.GIFT_CALC:
+    elif (is_new or src == "gift") and T.GIFT_CALC and src != "test":  # з тесту одразу тест, без подарунка
         # подарунок-розрахунок: якщо мінізастосунку ще немає, кнопка відкриває розрахунки в чаті
         markup = None if config.WEBAPP_URL else kb([[(T.BTN_CALC_PENSION, "calc:pension")]])
         await context.bot.send_message(chat_id, T.GIFT_CALC, parse_mode=HTML, reply_markup=markup)
@@ -226,6 +227,8 @@ async def after_start(context, chat_id, uid, src, is_new):
         await ask_start(chat_id, context, uid)
     elif src == "about":
         await show_about(chat_id, context, uid)
+    elif src == "test":
+        await quiz_intro(context, chat_id, uid)
     elif src == "calc":
         await show_calc_menu(chat_id, context, uid)
     elif src.startswith("calc_") and src[5:] in calc.STEPS:
@@ -355,7 +358,7 @@ def topic_title(topic):
 
 async def ask_start(chat_id, context, uid, topic=""):
     state(uid, f"ask:{topic}")
-    is_consult = topic in ("consult", "tip") or topic in T.PRODUCTS or topic.startswith("calc_")  # запис на консультацію з «Про мене» або з картки програми
+    is_consult = topic in ("consult", "tip", "quiz") or topic in T.PRODUCTS or topic.startswith("calc_")  # запис на консультацію з «Про мене» або з картки програми
     if is_consult:
         db.log_ev(uid, "consult", topic)
         # Одне натискання = запис: Олені одразу запит (на нього можна «Відповісти»), людині підтвердження
@@ -379,6 +382,54 @@ async def ask_start(chat_id, context, uid, topic=""):
     db.kv(f"consult_sent:{uid}", "")
     await context.bot.send_message(chat_id, T.ASK, parse_mode=HTML,
                                    reply_markup=kb([[(T.BTN_CANCEL, "ask_cancel")]]))
+
+
+# ================== квіз «Яка програма підходить саме вам?» (?start=test) ==================
+
+async def quiz_intro(context, chat_id, uid):
+    db.log_ev(uid, "quiz_start")
+    await context.bot.send_message(chat_id, T.QUIZ_INTRO, parse_mode=HTML,
+                                   reply_markup=kb([[(T.BTN_QUIZ_START, "qz:start")]]))
+
+
+async def quiz_question(context, chat_id, uid, i, edit_msg=None):
+    text, rows = kviz.question(i)
+    markup = kb(rows)
+    if edit_msg and edit_msg.text:  # одне повідомлення змінюється, чат лишається чистим
+        try:
+            await edit_msg.edit_text(text, parse_mode=HTML, reply_markup=markup)
+            return
+        except Exception:
+            pass
+    await context.bot.send_message(chat_id, text, parse_mode=HTML, reply_markup=markup)
+
+
+async def quiz_answer(context, chat_id, uid, i, key, edit_msg):
+    done = kviz.take(uid, i, key)
+    if done is None:
+        return
+    if not done:
+        await quiz_question(context, chat_id, uid, i + 1, edit_msg)
+        return
+    text, rows, goal = kviz.result(uid)
+    db.log_ev(uid, "quiz_done", json.dumps(kviz.answers(uid)))
+    db.log_ev(uid, "goal", goal)  # ціль видно в «🧮 Хто рахував»
+    try:
+        await edit_msg.edit_text(text, parse_mode=HTML, reply_markup=kb(rows))
+    except Exception:
+        await context.bot.send_message(chat_id, text, parse_mode=HTML, reply_markup=kb(rows))
+    if not config.is_admin(uid):
+        u = db.user(uid) or {}
+        nick = u.get("username")
+        contact = f"@{esc(nick)}" if nick else f'<a href="tg://user?id={uid}">{T.ADMIN_WRITE_LINK}</a>'
+        msg = T.ADMIN_QUIZ.format(who=who(u), summary=esc(kviz.summary(uid)),
+                                  result=esc(T.QUIZ_RESULT_NAMES.get(goal, goal)), contact=contact)
+        for a in config.ADMIN_IDS:
+            try:
+                m = await context.bot.send_message(a, msg, parse_mode=HTML)
+                db.kv(f"q:{m.message_id}", uid)
+            except Exception as e:
+                log.warning("quiz to admin: %s", e)
 
 
 async def show_calc_menu(chat_id, context, uid=0):
@@ -491,6 +542,12 @@ async def on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await context.bot.send_message(chat_id, T.ASK_CANCELLED, reply_markup=kb_bottom(uid))
     elif config.is_admin(uid) and data == "adm":
         await show_admin(chat_id, context, q.message)
+    elif data == "qz:start":
+        await quiz_question(context, chat_id, uid, 0, q.message)
+    elif data.startswith("qz:"):
+        parts = data.split(":")
+        if len(parts) == 3 and parts[1].isdigit():
+            await quiz_answer(context, chat_id, uid, int(parts[1]), parts[2], q.message)
     elif data == "tip:next":
         db.log_ev(uid, "tip_next")
         n = int(db.kv(f"tip_n:{uid}") or 0)
@@ -555,6 +612,12 @@ async def on_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     uid, chat_id = u.id, msg.chat_id
     db.touch_user(uid, u.full_name, u.username or "")
     text = msg.text or ""
+
+    # Команда, вставлена як звичайний текст (наприклад, скопійована з повідомлення): виконуємо її все одно
+    cmd = text.strip().split()[0].lower().split("@")[0] if text.strip().startswith("/") else ""
+    if cmd in ("/dzherela", "/myid", "/menu"):
+        await {"/dzherela": dzherela, "/myid": myid, "/menu": menu_cmd}[cmd](update, context)
+        return
 
     # 0) Цифри з мінізастосунку «Розрахунки»
     if msg.web_app_data:
