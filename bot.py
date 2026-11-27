@@ -497,7 +497,8 @@ async def show_admin(chat_id, context, edit_msg=None):
     total, week, src = db.stats()
     sources = "\n".join(f"• {esc(s)}: {n}" for s, n in src) or "• поки нікого"
     text = T.ADMIN_MENU.format(total=total, week=week, sources=sources)
-    rows = [[(T.BTN_BROADCAST, "bc"), (T.BTN_REPORT, "report")], [(T.BTN_CALC_LIST, "calcs"), (T.BTN_TIPS, "tips")],
+    rows = [[(T.BTN_BROADCAST, "bc"), (T.BTN_REPORT, "report")], [(T.BTN_WHO, "who")],
+            [(T.BTN_CALC_LIST, "calcs"), (T.BTN_TIPS, "tips")],
             [(T.BTN_STATS, "adm")]]
     if launch:
         rows = launch.admin_rows() + rows
@@ -597,6 +598,9 @@ async def on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await show_tips_admin(context.bot, chat_id)
     elif config.is_admin(uid) and data == "calcs":
         for part in calc_list_texts():
+            await context.bot.send_message(chat_id, part, parse_mode=HTML, disable_web_page_preview=True)
+    elif config.is_admin(uid) and data == "who":
+        for part in who_texts():
             await context.bot.send_message(chat_id, part, parse_mode=HTML, disable_web_page_preview=True)
     elif config.is_admin(uid) and data == "report":
         await context.bot.send_message(chat_id, report_text(), parse_mode=HTML)
@@ -1004,7 +1008,67 @@ def report_text(day=None):
         acts="\n".join(f"• {esc(k)}: {len(v)}" for k, v in top) or T.REPORT_NONE)
     if launch:
         text += "\n\n" + launch.report_lines(a, b)
+    who_list = who_texts(day, limit=WHO_IN_REPORT)
+    if len(text) + len(who_list[0]) < 4000:
+        text += "\n\n" + who_list[0]
     return text
+
+
+WHO_IN_REPORT = 20  # скільки людей показувати в ранковому звіті, решта за кнопкою «👥 Хто заходив вчора»
+
+
+def who_texts(day=None, limit=0):
+    """Хто заходив учора (за Києвом): ім'я, @нік або посилання, звідки прийшов, що робив. Частинами до 3500 знаків.
+    limit > 0: лише перші limit людей і рядок «і ще N»."""
+    today = (day or datetime.now(config.TZ)).replace(hour=0, minute=0, second=0, microsecond=0)
+    a = int((today - timedelta(days=1)).timestamp())
+    b = a + 86400
+    with db.conn() as c:
+        evs = [dict(r) for r in c.execute("SELECT user_id, ev, extra, at FROM events WHERE at>=? AND at<? ORDER BY at",
+                                          (a, b)).fetchall()]
+    people = {}
+    for e in evs:
+        uid = e["user_id"]
+        if not uid or config.is_admin(uid):
+            continue
+        name = T.EV_PERSON.get(e["ev"], T.EV_NAMES.get(e["ev"], e["ev"]))
+        if not name:
+            continue
+        if e["ev"] == "product" and e["extra"] in T.PRODUCTS:
+            name = f"програма «{T.PRODUCTS[e['extra']][0]}»"
+        elif e["ev"] == "goal" and e["extra"]:
+            name = f"ціль: {T.GOALS.get(e['extra'], e['extra'])}"
+        elif e["ev"] == "start" and e["extra"]:
+            name = f"Старт ({e['extra']})"
+        acts = people.setdefault(uid, [])
+        if acts and acts[-1][0] == name:  # однакові дії підряд: «порахувала(в) пенсію ×2»
+            acts[-1][1] += 1
+        else:
+            acts.append([name, 1])
+    if not people:
+        return [T.WHO_NONE]
+    lines = []
+    order = sorted(people, key=lambda u: -max(e["at"] for e in evs if e["user_id"] == u))
+    for i, uid in enumerate(order[:limit] if limit else order, 1):
+        u = db.user(uid) or {}
+        nick = u.get("username")
+        contact = f"@{esc(nick)}" if nick else f'<a href="tg://user?id={uid}">{T.ADMIN_WRITE_LINK}</a> (без ніка)'
+        is_new = a <= (u.get("joined") or 0) < b
+        src = u.get("src") if is_new and u.get("src") not in ("", "direct", None) else ""
+        acts = ", ".join(esc(n) + (f" ×{k}" if k > 1 else "") for n, k in people[uid])
+        lines.append(T.WHO_ITEM.format(i=i, name=esc(u.get("name") or uid), contact=contact,
+                                       src=T.WHO_SRC.format(src=esc(src)) if src else "", new=" 🆕" if is_new else "",
+                                       acts=acts))
+    if limit and len(order) > limit:
+        lines.append(T.WHO_MORE.format(n=len(order) - limit, btn=T.BTN_WHO))
+    parts, cur = [], T.WHO_HEAD.format(n=len(order))
+    for line in lines:
+        if len(cur) + len(line) > 3500:
+            parts.append(cur)
+            cur = ""
+        cur += "\n\n" + line
+    parts.append(cur.strip())
+    return parts
 
 
 async def report_job(context):
